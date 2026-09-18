@@ -1,0 +1,1145 @@
+{
+  "generated_at": "2026-09-18T09:58:36.250885",
+  "mode": "vn30",
+  "market": {
+    "regime": "ĐI NGANG",
+    "vnindex": 1832.38,
+    "change": 0.07,
+    "rsi": 64.7,
+    "recommendation": "Chờ tín hiệu rõ ràng, giao dịch biên"
+  },
+  "sectors": [
+    {
+      "sector": "Bất động sản dân cư",
+      "growth": 30,
+      "forecast": 25,
+      "margin": 20,
+      "diversification": 5,
+      "risk": 3,
+      "total": 83,
+      "q2_growth": 257,
+      "fy_growth": 180,
+      "risk_note": "Phân hóa cực mạnh, 80% LN từ Vingroup"
+    },
+    {
+      "sector": "Dầu khí",
+      "growth": 28.5,
+      "forecast": 7.9,
+      "margin": 11.4,
+      "diversification": 5,
+      "risk": 3,
+      "total": 55.8,
+      "q2_growth": 244,
+      "fy_growth": 57,
+      "risk_note": "Tăng trưởng chu kỳ, sẽ giảm khi nền so sánh cao"
+    },
+    {
+      "sector": "Bán lẻ",
+      "growth": 12.3,
+      "forecast": 3.5,
+      "margin": 4.6,
+      "diversification": 15,
+      "risk": 9,
+      "total": 44.4,
+      "q2_growth": 105.5,
+      "fy_growth": 25,
+      "risk_note": "Phục hồi từ nền thấp, cần theo dõi sức mua"
+    },
+    {
+      "sector": "Thực phẩm & Đồ uống",
+      "growth": 4.0,
+      "forecast": 1.7,
+      "margin": 10.3,
+      "diversification": 15,
+      "risk": 9,
+      "total": 40.0,
+      "q2_growth": 34.5,
+      "fy_growth": 12,
+      "risk_note": "Cạnh tranh gay gắt, chi phí nguyên liệu"
+    },
+    {
+      "sector": "Chứng khoán",
+      "growth": 7.1,
+      "forecast": 6.5,
+      "margin": 17.1,
+      "diversification": 5,
+      "risk": 3,
+      "total": 38.8,
+      "q2_growth": 61,
+      "fy_growth": 47,
+      "risk_note": "Phân hóa cực mạnh, thanh khoản biến động"
+    },
+    {
+      "sector": "Điện & Tiện ích",
+      "growth": 5.4,
+      "forecast": 2.1,
+      "margin": 6.9,
+      "diversification": 15,
+      "risk": 9,
+      "total": 38.3,
+      "q2_growth": 46.1,
+      "fy_growth": 15,
+      "risk_note": "Phụ thuộc thủy văn và giá điện"
+    },
+    {
+      "sector": "Thép & Nguyên vật liệu",
+      "growth": 9.7,
+      "forecast": 5.4,
+      "margin": 8.6,
+      "diversification": 5,
+      "risk": 9,
+      "total": 37.7,
+      "q2_growth": 83.2,
+      "fy_growth": 39,
+      "risk_note": "Phụ thuộc giá thép và nhu cầu xây dựng"
+    },
+    {
+      "sector": "Hóa chất",
+      "growth": 6.5,
+      "forecast": 4.2,
+      "margin": 6.9,
+      "diversification": 10,
+      "risk": 9,
+      "total": 36.5,
+      "q2_growth": 55.4,
+      "fy_growth": 30,
+      "risk_note": "Phụ thuộc giá dầu và nguyên liệu đầu vào"
+    },
+    {
+      "sector": "Ngân hàng",
+      "growth": 2.9,
+      "forecast": 2.5,
+      "margin": 14.3,
+      "diversification": 10,
+      "risk": 6,
+      "total": 35.7,
+      "q2_growth": 24.7,
+      "fy_growth": 18,
+      "risk_note": "NIM chịu áp lực, nợ xấu tăng"
+    },
+    {
+      "sector": "Bảo hiểm",
+      "growth": 2.3,
+      "forecast": 2.1,
+      "margin": 11.4,
+      "diversification": 10,
+      "risk": 9,
+      "total": 34.9,
+      "q2_growth": 20.1,
+      "fy_growth": 15,
+      "risk_note": "Lãi suất và tỷ lệ bồi thường"
+    },
+    {
+      "sector": "Xây dựng & Vật liệu",
+      "growth": 1.5,
+      "forecast": 2.8,
+      "margin": 5.7,
+      "diversification": 15,
+      "risk": 9,
+      "total": 34.0,
+      "q2_growth": 13.2,
+      "fy_growth": 20,
+      "risk_note": "Phụ thuộc đầu tư công và thị trường BĐS"
+    },
+    {
+      "sector": "Công nghệ thông tin",
+      "growth": 2.2,
+      "forecast": 2.8,
+      "margin": 8.6,
+      "diversification": 10,
+      "risk": 9,
+      "total": 32.6,
+      "q2_growth": 18.9,
+      "fy_growth": 20,
+      "risk_note": "FPT giảm do thay đổi hạch toán"
+    },
+    {
+      "sector": "Y tế & Dược phẩm",
+      "growth": 1.4,
+      "forecast": 1.4,
+      "margin": 8.6,
+      "diversification": 15,
+      "risk": 6,
+      "total": 32.4,
+      "q2_growth": 12.0,
+      "fy_growth": 10,
+      "risk_note": "Cạnh tranh giá, phụ thuộc nhập khẩu nguyên liệu"
+    },
+    {
+      "sector": "Du lịch & Giải trí",
+      "growth": 0,
+      "forecast": 0,
+      "margin": 2.9,
+      "diversification": 15,
+      "risk": 6,
+      "total": 23.9,
+      "q2_growth": -81.2,
+      "fy_growth": -20,
+      "risk_note": "Biến động mạnh, phụ thuộc mùa du lịch"
+    }
+  ],
+  "hot_symbols": [],
+  "stocks": [
+    {
+      "symbol": "VHM",
+      "sector": "Bất động sản dân cư",
+      "technical": 74,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 83,
+      "total": 65.6,
+      "adjusted_total": 75.8,
+      "signal": "MUA MẠNH",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 23,
+              "max": 25,
+              "note": "EMA ribbon tăng - xu hướng tích cực",
+              "close_above_ema8": true,
+              "status": "BULL",
+              "bull_pairs": 3
+            },
+            "macd": {
+              "score": 17,
+              "max": 20,
+              "above_signal": true,
+              "hist_positive": true,
+              "hist_rising": false,
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 15,
+              "max": 15,
+              "value": 52.4,
+              "status": "neutral_bullish",
+              "note": "Vùng lý tưởng, dư địa tăng tốt",
+              "rising": false
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.11,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 10,
+              "max": 15,
+              "position": 0.52,
+              "status": "middle",
+              "note": "Giữa dải - trung tính",
+              "width": 14.67
+            },
+            "atr": {
+              "score": 6,
+              "max": 10,
+              "atr_pct": 3.56,
+              "status": "high",
+              "note": "Biến động cao - giảm size"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 4,
+          "bearish_count": 0,
+          "entry_action": "ENTER_PARTIAL",
+          "entry_reason": "Điểm 74 + confidence MEDIUM. Vào 40-50% vị thế, chờ xác nhận thêm để gia tăng.",
+          "risk_management": {
+            "close": 72700.0,
+            "atr": 2586.12,
+            "stop_loss": 68820.82,
+            "take_profit_1": 77872.23,
+            "take_profit_2": 81751.41,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Bất động sản dân cư",
+          "growth": 30,
+          "forecast": 25,
+          "margin": 20,
+          "diversification": 5,
+          "risk": 3,
+          "total": 83,
+          "q2_growth": 257,
+          "fy_growth": 180,
+          "risk_note": "Phân hóa cực mạnh, 80% LN từ Vingroup"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "VRE",
+      "sector": "Bất động sản dân cư",
+      "technical": 62,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 83,
+      "total": 57.8,
+      "adjusted_total": 70.4,
+      "signal": "MUA",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 15,
+              "max": 25,
+              "note": "EMA ribbon chuyển tiếp - thận trọng",
+              "close_above_ema8": true,
+              "status": "WEAK_BULL",
+              "bull_pairs": 2
+            },
+            "macd": {
+              "score": 20,
+              "max": 20,
+              "above_signal": true,
+              "hist_positive": true,
+              "hist_rising": true,
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 15,
+              "max": 15,
+              "value": 58.4,
+              "status": "neutral_bullish",
+              "note": "Vùng lý tưởng, dư địa tăng tốt",
+              "rising": false
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.14,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 3,
+              "max": 15,
+              "position": 0.81,
+              "status": "near_upper",
+              "note": "Gần dải trên - rủi ro cao",
+              "width": 12.38
+            },
+            "atr": {
+              "score": 6,
+              "max": 10,
+              "atr_pct": 3.27,
+              "status": "high",
+              "note": "Biến động cao - giảm size"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 3,
+          "bearish_count": 1,
+          "entry_action": "ENTER_SMALL",
+          "entry_reason": "Điểm 62. Vào 20-30% vị thế để thăm dò, cắt lỗ nếu giảm dưới ATR.",
+          "risk_management": {
+            "close": 26200.0,
+            "atr": 855.77,
+            "stop_loss": 24916.35,
+            "take_profit_1": 27911.54,
+            "take_profit_2": 29195.19,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Bất động sản dân cư",
+          "growth": 30,
+          "forecast": 25,
+          "margin": 20,
+          "diversification": 5,
+          "risk": 3,
+          "total": 83,
+          "q2_growth": 257,
+          "fy_growth": 180,
+          "risk_note": "Phân hóa cực mạnh, 80% LN từ Vingroup"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "BCM",
+      "sector": "Bất động sản dân cư",
+      "technical": 59,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 83,
+      "total": 55.9,
+      "adjusted_total": 69.0,
+      "signal": "MUA",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 12,
+              "max": 25,
+              "note": "EMA ribbon chuyển tiếp - thận trọng",
+              "status": "WEAK_BULL",
+              "bull_pairs": 2
+            },
+            "macd": {
+              "score": 17,
+              "max": 20,
+              "above_signal": true,
+              "hist_positive": true,
+              "hist_rising": false,
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 15,
+              "max": 15,
+              "value": 46.4,
+              "status": "neutral_bullish",
+              "note": "Vùng lý tưởng, dư địa tăng tốt",
+              "rising": false
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.03,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 10,
+              "max": 15,
+              "position": 0.47,
+              "status": "middle",
+              "note": "Giữa dải - trung tính",
+              "width": 26.98
+            },
+            "atr": {
+              "score": 2,
+              "max": 10,
+              "atr_pct": 5.18,
+              "status": "extreme",
+              "note": "Biến động cực cao - rủi ro lớn"
+            }
+          },
+          "confidence": "LOW",
+          "bullish_count": 2,
+          "bearish_count": 0,
+          "entry_action": "NEUTRAL",
+          "entry_reason": "Tín hiệu hỗn hợp, không hành động.",
+          "risk_management": {
+            "close": 40800.0,
+            "atr": 2114.6,
+            "stop_loss": 37628.09,
+            "take_profit_1": 45029.21,
+            "take_profit_2": 48201.11,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Bất động sản dân cư",
+          "growth": 30,
+          "forecast": 25,
+          "margin": 20,
+          "diversification": 5,
+          "risk": 3,
+          "total": 83,
+          "q2_growth": 257,
+          "fy_growth": 180,
+          "risk_note": "Phân hóa cực mạnh, 80% LN từ Vingroup"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "VIC",
+      "sector": "Bất động sản dân cư",
+      "technical": 58,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 83,
+      "total": 55.2,
+      "adjusted_total": 68.5,
+      "signal": "MUA",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 25,
+              "max": 25,
+              "note": "EMA ribbon mở rộng hoàn hảo - xu hướng tăng mạnh",
+              "close_above_ema8": true,
+              "trend_clean": true,
+              "status": "FULL_BULL",
+              "bull_pairs": 4
+            },
+            "macd": {
+              "score": 20,
+              "max": 20,
+              "above_signal": true,
+              "hist_positive": true,
+              "hist_rising": true,
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 2,
+              "max": 15,
+              "value": 71.8,
+              "status": "overbought_strong",
+              "note": "Quá mua - rủi ro điều chỉnh cao",
+              "rising": true
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.03,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 2,
+              "max": 15,
+              "position": 1.08,
+              "status": "above_upper",
+              "note": "Vượt dải trên - quá mua mạnh",
+              "width": 23.14
+            },
+            "atr": {
+              "score": 6,
+              "max": 10,
+              "atr_pct": 3.13,
+              "status": "high",
+              "note": "Biến động cao - giảm size"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 3,
+          "bearish_count": 2,
+          "entry_action": "ENTER_SMALL",
+          "entry_reason": "Điểm 58. Vào 20-30% vị thế để thăm dò, cắt lỗ nếu giảm dưới ATR.",
+          "risk_management": {
+            "close": 242500.0,
+            "atr": 7598.25,
+            "stop_loss": 231102.62,
+            "take_profit_1": 257696.5,
+            "take_profit_2": 269093.88,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Bất động sản dân cư",
+          "growth": 30,
+          "forecast": 25,
+          "margin": 20,
+          "diversification": 5,
+          "risk": 3,
+          "total": 83,
+          "q2_growth": 257,
+          "fy_growth": 180,
+          "risk_note": "Phân hóa cực mạnh, 80% LN từ Vingroup"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "GAS",
+      "sector": "Dầu khí",
+      "technical": 65,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 55.8,
+      "total": 59.8,
+      "adjusted_total": 63.6,
+      "signal": "MUA",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 25,
+              "max": 25,
+              "note": "EMA ribbon mở rộng hoàn hảo - xu hướng tăng mạnh",
+              "close_above_ema8": true,
+              "trend_clean": true,
+              "status": "FULL_BULL",
+              "bull_pairs": 4
+            },
+            "macd": {
+              "score": 20,
+              "max": 20,
+              "above_signal": true,
+              "hist_positive": true,
+              "hist_rising": true,
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 8,
+              "max": 15,
+              "value": 69.0,
+              "status": "overbought_mild",
+              "note": "Tăng nóng nhẹ - cần thận trọng",
+              "rising": true
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.06,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 3,
+              "max": 15,
+              "position": 0.9,
+              "status": "near_upper",
+              "note": "Gần dải trên - rủi ro cao",
+              "width": 28.43
+            },
+            "atr": {
+              "score": 6,
+              "max": 10,
+              "atr_pct": 3.59,
+              "status": "high",
+              "note": "Biến động cao - giảm size"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 3,
+          "bearish_count": 1,
+          "entry_action": "ENTER_PARTIAL",
+          "entry_reason": "Điểm 65 + confidence MEDIUM. Vào 40-50% vị thế, chờ xác nhận thêm để gia tăng.",
+          "risk_management": {
+            "close": 88200.0,
+            "atr": 3168.54,
+            "stop_loss": 83447.18,
+            "take_profit_1": 94537.09,
+            "take_profit_2": 99289.91,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Dầu khí",
+          "growth": 28.5,
+          "forecast": 7.9,
+          "margin": 11.4,
+          "diversification": 5,
+          "risk": 3,
+          "total": 55.8,
+          "q2_growth": 244,
+          "fy_growth": 57,
+          "risk_note": "Tăng trưởng chu kỳ, sẽ giảm khi nền so sánh cao"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "MWG",
+      "sector": "Bán lẻ",
+      "technical": 67,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 44.4,
+      "total": 61.1,
+      "adjusted_total": 61.1,
+      "signal": "MUA",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 12,
+              "max": 25,
+              "note": "EMA ribbon chuyển tiếp - thận trọng",
+              "status": "WEAK_BULL",
+              "bull_pairs": 2
+            },
+            "macd": {
+              "score": 17,
+              "max": 20,
+              "above_signal": true,
+              "hist_positive": true,
+              "hist_rising": false,
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 15,
+              "max": 15,
+              "value": 49.3,
+              "status": "neutral_bullish",
+              "note": "Vùng lý tưởng, dư địa tăng tốt",
+              "rising": false
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.04,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 10,
+              "max": 15,
+              "position": 0.48,
+              "status": "middle",
+              "note": "Giữa dải - trung tính",
+              "width": 7.0
+            },
+            "atr": {
+              "score": 10,
+              "max": 10,
+              "atr_pct": 2.75,
+              "status": "optimal",
+              "note": "Biến động lý tưởng cho swing trade"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 3,
+          "bearish_count": 0,
+          "entry_action": "ENTER_PARTIAL",
+          "entry_reason": "Điểm 67 + confidence MEDIUM. Vào 40-50% vị thế, chờ xác nhận thêm để gia tăng.",
+          "risk_management": {
+            "close": 73100.0,
+            "atr": 2013.78,
+            "stop_loss": 70079.33,
+            "take_profit_1": 77127.56,
+            "take_profit_2": 80148.24,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Bán lẻ",
+          "growth": 12.3,
+          "forecast": 3.5,
+          "margin": 4.6,
+          "diversification": 15,
+          "risk": 9,
+          "total": 44.4,
+          "q2_growth": 105.5,
+          "fy_growth": 25,
+          "risk_note": "Phục hồi từ nền thấp, cần theo dõi sức mua"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "VNM",
+      "sector": "Thực phẩm & Đồ uống",
+      "technical": 68,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 40.0,
+      "total": 61.7,
+      "adjusted_total": 60.2,
+      "signal": "MUA",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 25,
+              "max": 25,
+              "note": "EMA ribbon mở rộng hoàn hảo - xu hướng tăng mạnh",
+              "trend_clean": true,
+              "status": "FULL_BULL",
+              "bull_pairs": 4
+            },
+            "macd": {
+              "score": 3,
+              "max": 20,
+              "above_signal": false,
+              "hist_positive": false,
+              "hist_rising": false,
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 15,
+              "max": 15,
+              "value": 47.8,
+              "status": "neutral_bullish",
+              "note": "Vùng lý tưởng, dư địa tăng tốt",
+              "rising": false
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.03,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 12,
+              "max": 15,
+              "position": 0.34,
+              "status": "lower_half",
+              "note": "Nửa dưới dải - tích cực",
+              "width": 9.58
+            },
+            "atr": {
+              "score": 10,
+              "max": 10,
+              "atr_pct": 2.25,
+              "status": "optimal",
+              "note": "Biến động lý tưởng cho swing trade"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 4,
+          "bearish_count": 1,
+          "entry_action": "ENTER_PARTIAL",
+          "entry_reason": "Điểm 68 + confidence MEDIUM. Vào 40-50% vị thế, chờ xác nhận thêm để gia tăng.",
+          "risk_management": {
+            "close": 60800.0,
+            "atr": 1365.22,
+            "stop_loss": 58752.17,
+            "take_profit_1": 63530.44,
+            "take_profit_2": 65578.27,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Thực phẩm & Đồ uống",
+          "growth": 4.0,
+          "forecast": 1.7,
+          "margin": 10.3,
+          "diversification": 15,
+          "risk": 9,
+          "total": 40.0,
+          "q2_growth": 34.5,
+          "fy_growth": 12,
+          "risk_note": "Cạnh tranh gay gắt, chi phí nguyên liệu"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "SAB",
+      "sector": "Thực phẩm & Đồ uống",
+      "technical": 67,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 40.0,
+      "total": 61.1,
+      "adjusted_total": 59.7,
+      "signal": "GIỮ",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 25,
+              "max": 25,
+              "note": "EMA ribbon mở rộng hoàn hảo - xu hướng tăng mạnh",
+              "trend_clean": true,
+              "status": "FULL_BULL",
+              "bull_pairs": 4
+            },
+            "macd": {
+              "score": 0,
+              "max": 20,
+              "above_signal": false,
+              "hist_positive": false,
+              "hist_rising": false,
+              "fresh_cross": "bearish",
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 15,
+              "max": 15,
+              "value": 43.9,
+              "status": "neutral_bullish",
+              "note": "Vùng lý tưởng, dư địa tăng tốt",
+              "rising": false
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.01,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 14,
+              "max": 15,
+              "position": 0.17,
+              "status": "near_lower",
+              "note": "Gần dải dưới - cơ hội mua",
+              "width": 7.43
+            },
+            "atr": {
+              "score": 10,
+              "max": 10,
+              "atr_pct": 2.12,
+              "status": "optimal",
+              "note": "Biến động lý tưởng cho swing trade"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 4,
+          "bearish_count": 1,
+          "entry_action": "ENTER_PARTIAL",
+          "entry_reason": "Điểm 67 + confidence MEDIUM. Vào 40-50% vị thế, chờ xác nhận thêm để gia tăng.",
+          "risk_management": {
+            "close": 44500.0,
+            "atr": 945.32,
+            "stop_loss": 43082.02,
+            "take_profit_1": 46390.63,
+            "take_profit_2": 47808.61,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Thực phẩm & Đồ uống",
+          "growth": 4.0,
+          "forecast": 1.7,
+          "margin": 10.3,
+          "diversification": 15,
+          "risk": 9,
+          "total": 40.0,
+          "q2_growth": 34.5,
+          "fy_growth": 12,
+          "risk_note": "Cạnh tranh gay gắt, chi phí nguyên liệu"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "MSN",
+      "sector": "Thực phẩm & Đồ uống",
+      "technical": 66,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 40.0,
+      "total": 60.4,
+      "adjusted_total": 59.3,
+      "signal": "GIỮ",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 15,
+              "max": 25,
+              "note": "EMA ribbon chuyển tiếp - thận trọng",
+              "close_above_ema8": true,
+              "status": "WEAK_BULL",
+              "bull_pairs": 2
+            },
+            "macd": {
+              "score": 17,
+              "max": 20,
+              "above_signal": true,
+              "hist_positive": true,
+              "hist_rising": false,
+              "above_zero": true
+            },
+            "rsi": {
+              "score": 15,
+              "max": 15,
+              "value": 55.3,
+              "status": "neutral_bullish",
+              "note": "Vùng lý tưởng, dư địa tăng tốt",
+              "rising": false
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.24,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 6,
+              "max": 15,
+              "position": 0.73,
+              "status": "upper_half",
+              "note": "Nửa trên dải - thận trọng",
+              "width": 7.53
+            },
+            "atr": {
+              "score": 10,
+              "max": 10,
+              "atr_pct": 2.23,
+              "status": "optimal",
+              "note": "Biến động lý tưởng cho swing trade"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 3,
+          "bearish_count": 0,
+          "entry_action": "ENTER_PARTIAL",
+          "entry_reason": "Điểm 66 + confidence MEDIUM. Vào 40-50% vị thế, chờ xác nhận thêm để gia tăng.",
+          "risk_management": {
+            "close": 69200.0,
+            "atr": 1545.03,
+            "stop_loss": 66882.45,
+            "take_profit_1": 72290.07,
+            "take_profit_2": 74607.62,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Thực phẩm & Đồ uống",
+          "growth": 4.0,
+          "forecast": 1.7,
+          "margin": 10.3,
+          "diversification": 15,
+          "risk": 9,
+          "total": 40.0,
+          "q2_growth": 34.5,
+          "fy_growth": 12,
+          "risk_note": "Cạnh tranh gay gắt, chi phí nguyên liệu"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "+5 (ưu tiên)",
+      "is_priority_sector": true
+    },
+    {
+      "symbol": "ACB",
+      "sector": "Ngân hàng",
+      "technical": 77,
+      "fundamental": 50,
+      "sentiment": 50,
+      "sector_score": 35.7,
+      "total": 67.6,
+      "adjusted_total": 58.0,
+      "signal": "GIỮ",
+      "details": {
+        "technical": {
+          "score_breakdown": {
+            "ema_ribbon": {
+              "score": 23,
+              "max": 25,
+              "note": "EMA ribbon tăng - xu hướng tích cực",
+              "close_above_ema8": true,
+              "trend_clean": true,
+              "status": "BULL",
+              "bull_pairs": 3
+            },
+            "macd": {
+              "score": 20,
+              "max": 20,
+              "above_signal": true,
+              "hist_positive": true,
+              "hist_rising": true
+            },
+            "rsi": {
+              "score": 15,
+              "max": 15,
+              "value": 54.8,
+              "status": "neutral_bullish",
+              "note": "Vùng lý tưởng, dư địa tăng tốt",
+              "rising": true
+            },
+            "volume": {
+              "score": 3,
+              "max": 15,
+              "ratio": 0.08,
+              "status": "very_low",
+              "note": "Volume rất thấp - không nên vào lệnh"
+            },
+            "bollinger": {
+              "score": 6,
+              "max": 15,
+              "position": 0.76,
+              "status": "upper_half",
+              "note": "Nửa trên dải - thận trọng",
+              "width": 5.8
+            },
+            "atr": {
+              "score": 10,
+              "max": 10,
+              "atr_pct": 1.97,
+              "status": "optimal",
+              "note": "Biến động lý tưởng cho swing trade"
+            }
+          },
+          "confidence": "MEDIUM",
+          "bullish_count": 4,
+          "bearish_count": 0,
+          "entry_action": "ENTER_PARTIAL",
+          "entry_reason": "Điểm 77 + confidence MEDIUM. Vào 40-50% vị thế, chờ xác nhận thêm để gia tăng.",
+          "risk_management": {
+            "close": 22650.0,
+            "atr": 446.27,
+            "stop_loss": 21980.59,
+            "take_profit_1": 23542.55,
+            "take_profit_2": 24211.95,
+            "risk_reward_ratio": 1.33
+          }
+        },
+        "fundamental": {
+          "status": "no_data",
+          "note": "Không có dữ liệu cơ bản"
+        },
+        "ratios": null,
+        "sector": {
+          "sector": "Ngân hàng",
+          "growth": 2.9,
+          "forecast": 2.5,
+          "margin": 14.3,
+          "diversification": 10,
+          "risk": 6,
+          "total": 35.7,
+          "q2_growth": 24.7,
+          "fy_growth": 18,
+          "risk_note": "NIM chịu áp lực, nợ xấu tăng"
+        }
+      },
+      "has_fundamental": false,
+      "sector_bonus": "0",
+      "is_priority_sector": false
+    }
+  ]
+}
