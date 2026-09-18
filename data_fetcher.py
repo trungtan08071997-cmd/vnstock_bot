@@ -153,23 +153,114 @@ def get_financial_ratios(symbol):
 
 
 # ============================================================
-# VNINDEX - Thử nhiều mã
+# VNINDEX - Thử TCBS → VNDirect → None
 # ============================================================
+def _tcbs_vnindex(days):
+    """Lấy VNINDEX từ TCBS (type=index)."""
+    import requests
+    import pandas as pd
+    from datetime import datetime, timedelta
+
+    end_ts = int(datetime.now().timestamp())
+    start_ts = int((datetime.now() - timedelta(days=days * 2)).timestamp())
+
+    url = "https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term"
+    params = {
+        "ticker": "VNINDEX", "type": "index",
+        "resolution": "D", "from": start_ts, "to": end_ts,
+    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                              "AppleWebKit/537.36"}
+
+    try:
+        r = requests.get(url, params=params, headers=headers, timeout=15)
+        if r.status_code != 200:
+            return None
+        bars = r.json().get("data", [])
+        if not bars:
+            return None
+
+        df = pd.DataFrame(bars)
+        df["time"] = pd.to_datetime(df["tradingDate"]).dt.strftime("%Y-%m-%d")
+        df = df.rename(columns={"open": "open", "high": "high",
+                                 "low": "low", "close": "close",
+                                 "volume": "volume"})
+        required = ["time", "open", "high", "low", "close", "volume"]
+        if not all(c in df.columns for c in required):
+            return None
+        df = df[required].tail(days).reset_index(drop=True)
+        print(f"      ✓ TCBS VNINDEX OK ({len(df)} phiên)")
+        return df
+    except Exception as e:
+        print(f"      TCBS VNINDEX fail: {str(e)[:80]}")
+        return None
+
+
+def _vndirect_vnindex(days):
+    """Lấy VNINDEX từ VNDirect endpoint index_prices."""
+    import requests
+    import pandas as pd
+    from datetime import datetime, timedelta
+
+    end = datetime.now()
+    start = end - timedelta(days=days * 2)
+
+    url = "https://finfo-api.vndirect.com.vn/v4/index_prices"
+    params = {
+        "q": f"code:VNINDEX~date:gte:{start.strftime('%Y-%m-%d')}"
+              f"~date:lte:{end.strftime('%Y-%m-%d')}",
+        "size": days + 50, "page": 1, "sort": "date",
+    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                              "AppleWebKit/537.36"}
+
+    try:
+        r = requests.get(url, params=params, headers=headers, timeout=15)
+        if r.status_code != 200:
+            return None
+        records = r.json().get("data", [])
+        if not records:
+            return None
+
+        df = pd.DataFrame(records)
+        df = df.rename(columns={
+            "date": "time", "open": "open", "high": "high",
+            "low": "low", "close": "close",
+            "nmVolume": "volume", "volume": "volume",
+        })
+        required = ["time", "open", "high", "low", "close", "volume"]
+        if not all(c in df.columns for c in required):
+            return None
+        df = df[required].tail(days).reset_index(drop=True)
+        print(f"      ✓ VNDirect INDEX OK ({len(df)} phiên)")
+        return df
+    except Exception as e:
+        print(f"      VNDirect INDEX fail: {str(e)[:80]}")
+        return None
+
+
 def get_vnindex_history(days=None):
-    """Lấy VN-Index - thử nhiều mã có thể."""
+    """
+    Lấy VN-Index - thử nhiều nguồn.
+    Nếu tất cả fail → trả None (bot vẫn chạy tiếp).
+    """
     if days is None:
         days = config.HISTORY_DAYS
 
-    for ticker in ["VNINDEX", "VN-INDEX", "VN30", "VN30INDEX"]:
-        try:
-            df = get_stock_history(ticker, days)
-            if df is not None and len(df) >= 50:
-                print(f"      ✓ VNINDEX ({ticker}) OK")
-                return df
-        except Exception:
-            continue
+    print("      📊 Đang lấy VNINDEX...")
 
-    print("      ❌ Không lấy được VNINDEX")
+    # Nguồn 1: TCBS
+    df = _tcbs_vnindex(days)
+    if df is not None and len(df) >= 50:
+        return df
+
+    # Nguồn 2: VNDirect
+    df = _vndirect_vnindex(days)
+    if df is not None and len(df) >= 50:
+        return df
+
+    # Nguồn 3: Fallback - trả None, không báo lỗi
+    print("      ⚠️ Không lấy được VNINDEX - bỏ qua phần thị trường")
     return None
 
 
