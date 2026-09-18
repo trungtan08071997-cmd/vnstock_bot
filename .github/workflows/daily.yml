@@ -24,7 +24,6 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install requests beautifulsoup4 lxml pandas numpy schedule
-          pip install vnstock
 
       - name: Run bot
         env:
