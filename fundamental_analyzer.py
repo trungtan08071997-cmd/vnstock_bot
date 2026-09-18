@@ -72,6 +72,8 @@ def passes_basic_filter(ratios):
     """
     if not ratios:
         return True  # Không có dữ liệu → vẫn cho qua
+    if all(ratios.get(k) is None for k in ["pe", "pb", "roe"]):
+        return True
     
     f = config.FUNDAMENTAL_FILTERS
     pe = ratios.get("pe")
