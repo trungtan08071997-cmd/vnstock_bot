@@ -23,7 +23,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests beautifulsoup4 lxml pandas numpy schedule
+          pip install --only-binary=:all: requests beautifulsoup4 lxml pandas numpy schedule
+          pip install --only-binary=:all: "lotusmarket[fetchers]"
 
       - name: Run bot
         env:
