@@ -266,6 +266,15 @@ def sentiment_score_full(symbol, articles):
                 "url": art.get("url", ""),
             })
     n_articles = len(symbol_articles)
+    if n_articles < 3:
+        return 50, {
+            "mentions": n_articles,
+            "sources": len(set(a["source"] for a in symbol_articles)),
+            "sub_scores": {},
+            "total": 50,
+            "status": "KHÔNG ĐỦ TIN (trung tính)",
+            "top_articles": symbol_articles[:3],
+        }    
     if not symbol_articles:
         # Không có tin → trả về trung tính
         return 50, {
