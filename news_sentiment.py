@@ -265,7 +265,7 @@ def sentiment_score_full(symbol, articles):
                 "sentiment": sent,
                 "url": art.get("url", ""),
             })
-
+    n_articles = len(symbol_articles)
     if not symbol_articles:
         # Không có tin → trả về trung tính
         return 50, {
