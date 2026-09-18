@@ -15,10 +15,7 @@ os.environ["VNSTOCK_QUIET"] = "1"
 NOTIFY_CHANNELS = ["console", "discord"]
 
 # Discord Webhook - DÁN URL CỦA BẠN VÀO ĐÂY
-DISCORD_WEBHOOK_URL = os.getenv(
-    "DISCORD_WEBHOOK_URL",
-    "https://discordapp.com/api/webhooks/1550126816365252650/HW-ygjoYgZSq-TYH_15IBFR0qYAP-ahpP22L5_jJG5x9zL3O5B2g3uTLV4LxhOLzetzu"
-)
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
 # ============================================================
 # CHẾ ĐỘ PHÂN TÍCH
