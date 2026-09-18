@@ -9,6 +9,15 @@ from technical_analyzer import TechnicalAnalyzer
 def get_market_regime():
     df = get_vnindex_history()
     if df is None or len(df) < 50:
+        return {
+            "regime": "KHÔNG XÁC ĐỊNH",
+            "vnindex": 0,
+            "change": 0,
+            "rsi": 50,
+            "recommendation": "Không đủ dữ liệu VNINDEX",
+        }
+
+    if df is None or len(df) < 50:
         return {"regime": "KHÔNG XÁC ĐỊNH", "vnindex": 0, "change": 0,
                 "rsi": 50, "recommendation": "Không đủ dữ liệu"}
     ta = TechnicalAnalyzer(df)
