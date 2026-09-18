@@ -1,56 +1,199 @@
+"""
+Data fetcher - dùng lotusmarket, tự động detect tên cột
+"""
 import time
 import pandas as pd
-from lotusmarket import fetchers
 from datetime import datetime, timedelta
 import config
 
+
+def _normalize_dataframe(df, days):
+    """
+    Chuẩn hóa DataFrame từ lotusmarket về format chuẩn:
+    time, open, high, low, close, volume
+    """
+    if df is None or df.empty:
+        return None
+
+    # In debug để biết cột thực tế
+    print(f"      [DEBUG] Columns: {df.columns.tolist()}")
+
+    # ===== TỰ ĐỘNG DETECT TÊN CỘT =====
+    rename_map = {}
+    for col in df.columns:
+        col_lower = str(col).lower().strip()
+        
+        # Cột thời gian
+        if col_lower in ('time', 'date', 'tradingdate', 'trading_date',
+                          'datetime', 'timestamp', 't'):
+            rename_map[col] = 'time'
+        # Cột giá mở cửa
+        elif col_lower in ('open', 'o', 'openprice', 'open_price', 'giamo'):
+            rename_map[col] = 'open'
+        # Cột giá cao nhất
+        elif col_lower in ('high', 'h', 'highprice', 'high_price', 'giacao'):
+            rename_map[col] = 'high'
+        # Cột giá thấp nhất
+        elif col_lower in ('low', 'l', 'lowprice', 'low_price', 'giathap'):
+            rename_map[col] = 'low'
+        # Cột giá đóng cửa
+        elif col_lower in ('close', 'c', 'closeprice', 'close_price', 'giadong'):
+            rename_map[col] = 'close'
+        # Cột khối lượng
+        elif col_lower in ('volume', 'v', 'vol', 'nmvolume', 'khoiluong'):
+            rename_map[col] = 'volume'
+
+    df = df.rename(columns=rename_map)
+
+    # ===== NẾU INDEX LÀ THỜI GIAN =====
+    if 'time' not in df.columns:
+        # Thử dùng index
+        if df.index.name and 'date' in str(df.index.name).lower():
+            df = df.reset_index()
+            df = df.rename(columns={df.columns[0]: 'time'})
+        elif isinstance(df.index, pd.DatetimeIndex):
+            df = df.reset_index()
+            df = df.rename(columns={df.columns[0]: 'time'})
+
+    # ===== KIỂM TRA CỘT CẦN THIẾT =====
+    required = ['time', 'open', 'high', 'low', 'close', 'volume']
+    missing = [c for c in required if c not in df.columns]
+
+    if missing:
+        print(f"      [DEBUG] Missing: {missing}")
+        return None
+
+    # ===== FORMAT LẠI =====
+    try:
+        df['time'] = pd.to_datetime(df['time']).dt.strftime('%Y-%m-%d')
+    except Exception as e:
+        print(f"      [DEBUG] Time parse error: {e}")
+        return None
+
+    df = df[required].tail(days).reset_index(drop=True)
+
+    # Chuyển giá sang số
+    for col in ['open', 'high', 'low', 'close', 'volume']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    # Bỏ dòng NaN
+    df = df.dropna(subset=['close']).reset_index(drop=True)
+
+    if len(df) < 50:
+        return None
+
+    return df
+
+
+# ============================================================
+# LỊCH SỬ GIÁ
+# ============================================================
 def get_stock_history(symbol, days=None):
-    """Lấy dữ liệu OHLCV từ Entrade (nguồn ổn định cho GitHub Actions)."""
+    """Lấy dữ liệu OHLCV từ lotusmarket."""
     if days is None:
         days = config.HISTORY_DAYS
+
     try:
-        # Lấy lịch sử giá từ Entrade
+        from lotusmarket import fetchers
+
+        # Thử Entrade
         history = fetchers.entrade_history(symbol, days)
-        if not history:
+
+        if history is None:
+            print(f"      [DEBUG] history is None cho {symbol}")
             return None
-        df = pd.DataFrame([h.__dict__ for h in history])
-        df = df.rename(columns={'tradingDate': 'time', 'open': 'open', 'high': 'high', 'low': 'low', 'close': 'close', 'volume': 'volume'})
-        df['time'] = pd.to_datetime(df['time']).dt.strftime('%Y-%m-%d')
-        return df[['time', 'open', 'high', 'low', 'close', 'volume']].tail(days).reset_index(drop=True)
+
+        print(f"      [DEBUG] Type: {type(history).__name__}")
+
+        # Chuyển về DataFrame
+        if isinstance(history, pd.DataFrame):
+            df = history.copy()
+        elif isinstance(history, list):
+            if len(history) == 0:
+                return None
+            first = history[0]
+            if hasattr(first, '_asdict'):
+                df = pd.DataFrame([h._asdict() for h in history])
+            elif hasattr(first, '__dict__'):
+                df = pd.DataFrame([vars(h) for h in history])
+            elif isinstance(first, dict):
+                df = pd.DataFrame(history)
+            else:
+                print(f"      [DEBUG] Unknown item: {type(first).__name__}")
+                return None
+        else:
+            print(f"      [DEBUG] Unknown type")
+            return None
+
+        result = _normalize_dataframe(df, days)
+        if result is not None:
+            print(f"      ✓ OK ({len(result)} phiên)")
+            time.sleep(0.5)
+        return result
+
     except Exception as e:
-        print(f"    ⚠️ Lỗi lấy dữ liệu {symbol}: {str(e)[:80]}")
+        print(f"      ❌ Lỗi {symbol}: {type(e).__name__}: {str(e)[:100]}")
         return None
 
+
+# ============================================================
+# CHỈ SỐ CƠ BẢN - Trả None để bot dùng fallback
+# ============================================================
 def get_financial_ratios(symbol):
-    """Lấy chỉ số tài chính từ KBS (P/E, P/B, ROE, EPS)."""
-    try:
-        # Lấy chỉ số cơ bản từ KBS
-        quote = fetchers.kbs(symbol)
-        if not quote:
-            return None
-        return {
-            "symbol": symbol,
-            "pe": getattr(quote, 'pe', None),
-            "pb": getattr(quote, 'pb', None),
-            "roe": getattr(quote, 'roe', None),
-            "eps": getattr(quote, 'eps', None),
-            "roa": getattr(quote, 'roa', None),
-            "net_margin": getattr(quote, 'net_margin', None),
-        }
-    except Exception as e:
-        print(f"    ⚠️ Lỗi lấy chỉ số {symbol}: {str(e)[:80]}")
-        return None
+    """
+    Trả None để bot tự động dùng SCORING_WEIGHTS_NO_FUNDAMENTAL.
+    Bot sẽ chấm điểm dựa trên technical + sentiment.
+    """
+    return {
+        "symbol": symbol,
+        "pe": None, "pb": None, "roe": None, "eps": None,
+        "roa": None, "net_margin": None,
+        "source": "unavailable",
+    }
 
+
+# ============================================================
+# VNINDEX - Thử nhiều mã
+# ============================================================
 def get_vnindex_history(days=None):
-    """Lấy dữ liệu VN-Index."""
-    return get_stock_history("VNINDEX", days)
+    """Lấy VN-Index - thử nhiều mã có thể."""
+    if days is None:
+        days = config.HISTORY_DAYS
+
+    for ticker in ["VNINDEX", "VN-INDEX", "VN30", "VN30INDEX"]:
+        try:
+            df = get_stock_history(ticker, days)
+            if df is not None and len(df) >= 50:
+                print(f"      ✓ VNINDEX ({ticker}) OK")
+                return df
+        except Exception:
+            continue
+
+    print("      ❌ Không lấy được VNINDEX")
+    return None
+
 
 def get_foreign_flow(symbol):
-    """Lấy dữ liệu khối ngoại mua/bán ròng."""
-    try:
-        quote = fetchers.vps(symbol)
-        if not quote:
-            return {"symbol": symbol, "foreign_net": 0}
-        return {"symbol": symbol, "foreign_net": getattr(quote, 'foreign_net_vol', 0)}
-    except Exception:
-        return {"symbol": symbol, "foreign_net": 0}
+    return {"symbol": symbol, "foreign_net": 0}
+
+
+# ============================================================
+# TEST
+# ============================================================
+if __name__ == "__main__":
+    print("🧪 TEST LOTUSMARKET")
+    print("=" * 60)
+
+    for sym in ["VCB", "HPG", "FPT"]:
+        print(f"\n--- {sym} ---")
+        df = get_stock_history(sym, 100)
+        if df is not None:
+            print(f"  ✓ {len(df)} phiên")
+            print(f"  Phiên cuối: {df.iloc[-1].to_dict()}")
+        else:
+            print(f"  ❌ Fail")
+
+    print("\n--- VNINDEX ---")
+    vni = get_vnindex_history(100)
+    if vni is not None:
+        print(f"  ✓ VNINDEX: {vni.iloc[-1]['close']}")
