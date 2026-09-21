@@ -1,39 +1,41 @@
 """
-Technical Analyzer - Phiên bản nâng cao
-- Dynamic weights theo chế độ thị trường (TREND/SIDEWAY)
-- EMA Ribbon 3 khung: intraday (5,9,21), swing (8,13,21,34,55), position (50,100,200)
-- RSI threshold ĐỘNG theo regime
-- 6 chỉ báo: EMA, MACD, RSI, Volume, Bollinger, ATR
-- Risk management: SL/TP dựa trên ATR
+Technical Analyzer - Phiên bản tối ưu từ Bayesian Optimization
+Config áp dụng (từ 100 trials trên VN30):
+- Static weights (không dynamic)
+- RSI threshold cố định 40/60
+- SL = 3.0 ATR, TP = 5.0 ATR
+- Entry threshold = 55
+- Max hold = 25 ngày
 """
 import pandas as pd
 import numpy as np
+import config
 
 
 # ============================================================
-# DYNAMIC WEIGHTS THEO REGIME
+# STATIC WEIGHTS (config tối ưu)
 # ============================================================
+STATIC_WEIGHTS = {
+    "ema_ribbon": 25,
+    "macd": 20,
+    "rsi": 15,
+    "volume": 15,
+    "bollinger": 15,
+    "atr": 10,
+}
+
+# Dynamic weights (giữ lại để có thể bật lại sau)
 REGIME_WEIGHTS = {
-    "TREND_STRONG_VOLATILE": {
-        "ema_ribbon": 30, "macd": 20, "rsi": 5,
-        "volume": 15, "bollinger": 5, "atr": 25,
-    },
-    "TREND_STRONG_CALM": {
-        "ema_ribbon": 35, "macd": 25, "rsi": 5,
-        "volume": 15, "bollinger": 5, "atr": 15,
-    },
-    "SIDEWAY_VOLATILE": {
-        "ema_ribbon": 10, "macd": 10, "rsi": 20,
-        "volume": 15, "bollinger": 20, "atr": 25,
-    },
-    "SIDEWAY_CALM": {
-        "ema_ribbon": 10, "macd": 15, "rsi": 25,
-        "volume": 15, "bollinger": 25, "atr": 10,
-    },
-    "TRANSITION": {
-        "ema_ribbon": 20, "macd": 20, "rsi": 15,
-        "volume": 15, "bollinger": 20, "atr": 10,
-    },
+    "TREND_STRONG_VOLATILE": {"ema_ribbon": 30, "macd": 20, "rsi": 5,
+                              "volume": 15, "bollinger": 5, "atr": 25},
+    "TREND_STRONG_CALM":     {"ema_ribbon": 35, "macd": 25, "rsi": 5,
+                              "volume": 15, "bollinger": 5, "atr": 15},
+    "SIDEWAY_VOLATILE":      {"ema_ribbon": 10, "macd": 10, "rsi": 20,
+                              "volume": 15, "bollinger": 20, "atr": 25},
+    "SIDEWAY_CALM":          {"ema_ribbon": 10, "macd": 15, "rsi": 25,
+                              "volume": 15, "bollinger": 25, "atr": 10},
+    "TRANSITION":            {"ema_ribbon": 20, "macd": 20, "rsi": 15,
+                              "volume": 15, "bollinger": 20, "atr": 10},
 }
 
 
@@ -41,6 +43,7 @@ REGIME_WEIGHTS = {
 # CLASS CHÍNH
 # ============================================================
 class TechnicalAnalyzer:
+
     def __init__(self, df):
         """
         Args:
@@ -48,24 +51,35 @@ class TechnicalAnalyzer:
         """
         self.df = df.copy()
         self._calculate_indicators()
-        self.regime = self._detect_regime()
-        self.weights = REGIME_WEIGHTS.get(self.regime, REGIME_WEIGHTS["TRANSITION"])
+
+        # Đọc config
+        tc = getattr(config, "TRADING_CONFIG", {})
+        use_dynamic = tc.get("use_dynamic_weights", False)
+
+        if use_dynamic:
+            self.regime = self._detect_regime()
+            self.weights = REGIME_WEIGHTS.get(
+                self.regime, REGIME_WEIGHTS["TRANSITION"]
+            )
+        else:
+            self.regime = "STATIC"
+            self.weights = STATIC_WEIGHTS.copy()
 
     # ============================================================
-    # 1. TÍNH TOÁN CHỈ BÁO
+    # 1. TÍNH CHỈ BÁO
     # ============================================================
     def _calculate_indicators(self):
         d = self.df
 
-        # ===== EMA RIBBON - KHUNG NGẮN (intraday 5,9,21) =====
+        # ===== EMA khung ngắn (intraday) =====
         for p in [5, 9, 21]:
             d[f"ema_s_{p}"] = d["close"].ewm(span=p, adjust=False).mean()
 
-        # ===== EMA RIBBON - KHUNG TRUNG (swing 8,13,21,34,55) =====
+        # ===== EMA khung trung (swing) =====
         for p in [8, 13, 21, 34, 55]:
             d[f"ema_m_{p}"] = d["close"].ewm(span=p, adjust=False).mean()
 
-        # ===== EMA RIBBON - KHUNG DÀI (position 50,100,200) =====
+        # ===== EMA khung dài (position) =====
         for p in [50, 100, 200]:
             d[f"ema_l_{p}"] = d["close"].ewm(span=p, adjust=False).mean()
 
@@ -76,7 +90,7 @@ class TechnicalAnalyzer:
         d["macd_signal"] = d["macd"].ewm(span=9, adjust=False).mean()
         d["macd_hist"] = d["macd"] - d["macd_signal"]
 
-        # ===== RSI (Wilder's) =====
+        # ===== RSI =====
         delta = d["close"].diff()
         gain = delta.where(delta > 0, 0).ewm(alpha=1/14, adjust=False).mean()
         loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/14, adjust=False).mean()
@@ -102,7 +116,7 @@ class TechnicalAnalyzer:
         d["volume_sma_20"] = d["volume"].rolling(20).mean()
         d["volume_ratio"] = d["volume"] / d["volume_sma_20"]
 
-        # ===== ADX (để detect regime) =====
+        # ===== ADX (chỉ dùng nếu bật dynamic) =====
         plus_dm = d["high"].diff()
         minus_dm = -d["low"].diff()
         plus_dm[plus_dm < 0] = 0
@@ -116,36 +130,25 @@ class TechnicalAnalyzer:
         d["adx_14"] = dx.ewm(alpha=1/14, adjust=False).mean()
 
     # ============================================================
-    # 2. DETECT REGIME
+    # 2. DETECT REGIME (chỉ dùng nếu bật dynamic)
     # ============================================================
     def _detect_regime(self):
-        """
-        Phát hiện chế độ thị trường.
-        - ADX >= 25: TREND_STRONG
-        - ADX <= 20: SIDEWAY
-        - ATR% >= 3.0: VOLATILE
-        """
         if len(self.df) < 30:
             return "TRANSITION"
-
         latest = self.df.iloc[-1]
         adx = latest.get("adx_14", 20)
         atr_pct = latest.get("atr_pct", 2.0)
-
-        if pd.isna(adx):
-            adx = 20
-        if pd.isna(atr_pct):
-            atr_pct = 2.0
+        if pd.isna(adx): adx = 20
+        if pd.isna(atr_pct): atr_pct = 2.0
 
         if adx >= 25:
             return "TREND_STRONG_VOLATILE" if atr_pct >= 3.0 else "TREND_STRONG_CALM"
         elif adx <= 20:
             return "SIDEWAY_VOLATILE" if atr_pct >= 3.0 else "SIDEWAY_CALM"
-        else:
-            return "TRANSITION"
+        return "TRANSITION"
 
     # ============================================================
-    # 3. LẤY TÍN HIỆU HIỆN TẠI
+    # 3. LẤY TÍN HIỆU
     # ============================================================
     def get_current_signals(self):
         if len(self.df) < 55:
@@ -156,173 +159,109 @@ class TechnicalAnalyzer:
         return {
             "close": latest.get("close"),
             "prev_close": prev.get("close"),
-            # EMA khung ngắn
             "ema_s_5": latest.get("ema_s_5"),
             "ema_s_9": latest.get("ema_s_9"),
             "ema_s_21": latest.get("ema_s_21"),
-            # EMA khung trung
             "ema_m_8": latest.get("ema_m_8"),
             "ema_m_13": latest.get("ema_m_13"),
             "ema_m_21": latest.get("ema_m_21"),
             "ema_m_34": latest.get("ema_m_34"),
             "ema_m_55": latest.get("ema_m_55"),
-            # EMA khung dài
             "ema_l_50": latest.get("ema_l_50"),
             "ema_l_100": latest.get("ema_l_100"),
             "ema_l_200": latest.get("ema_l_200"),
-            # MACD
             "macd": latest.get("macd"),
             "macd_signal": latest.get("macd_signal"),
             "macd_hist": latest.get("macd_hist"),
             "prev_macd_hist": prev.get("macd_hist"),
-            # RSI
             "rsi": latest.get("rsi_14"),
             "prev_rsi": prev.get("rsi_14"),
-            # Bollinger
             "bb_upper": latest.get("bb_upper"),
             "bb_middle": latest.get("bb_middle"),
             "bb_lower": latest.get("bb_lower"),
             "bb_width": latest.get("bb_width"),
-            # ATR
             "atr": latest.get("atr_14"),
             "atr_pct": latest.get("atr_pct"),
-            # Volume
             "volume": latest.get("volume"),
             "volume_sma_20": latest.get("volume_sma_20"),
             "volume_ratio": latest.get("volume_ratio"),
-            # ADX
             "adx": latest.get("adx_14"),
         }
 
     # ============================================================
-    # 4. CHẤM ĐIỂM EMA RIBBON (3 khung)
+    # 4. CHẤM ĐIỂM EMA (max 25)
     # ============================================================
     def _score_ema_ribbon(self, s):
-        """
-        Chấm điểm EMA với 3 khung:
-        - Intraday (5,9,21): 30%
-        - Swing (8,13,21,34,55): 50%
-        - Position (50,100,200): 20%
-        """
         close = s.get("close", 0)
 
-        # ===== KHUNG NGẮN (Intraday) =====
-        intra_score = 0
+        # Intraday
+        intra_score = 50
         ema5 = s.get("ema_s_5")
         ema9 = s.get("ema_s_9")
-        ema21 = s.get("ema_s_21")
+        ema21s = s.get("ema_s_21")
+        intra_sig = "NEUTRAL"
+        if not any(v is None or pd.isna(v) for v in [ema5, ema9, ema21s]):
+            if close > ema5 > ema9 > ema21s:
+                intra_score, intra_sig = 100, "STRONG_BULL"
+            elif close > ema9 > ema21s:
+                intra_score, intra_sig = 75, "BULL"
+            elif close < ema5 < ema9 < ema21s:
+                intra_score, intra_sig = 0, "STRONG_BEAR"
+            elif close < ema9 < ema21s:
+                intra_score, intra_sig = 25, "BEAR"
 
-        if all(v is not None and not pd.isna(v) for v in [ema5, ema9, ema21]):
-            if close > ema5 > ema9 > ema21:
-                intra_score = 100
-                intra_sig = "STRONG_BULL_INTRADAY"
-            elif close > ema9 > ema21:
-                intra_score = 75
-                intra_sig = "BULL_INTRADAY"
-            elif close < ema5 < ema9 < ema21:
-                intra_score = 0
-                intra_sig = "STRONG_BEAR_INTRADAY"
-            elif close < ema9 < ema21:
-                intra_score = 25
-                intra_sig = "BEAR_INTRADAY"
-            else:
-                intra_score = 50
-                intra_sig = "NEUTRAL_INTRADAY"
-        else:
-            intra_sig = "NO_DATA"
-
-        # ===== KHUNG TRUNG (Swing) =====
-        swing_score = 0
+        # Swing
+        swing_score = 50
+        bull_pairs = 0
         ema8 = s.get("ema_m_8")
         ema13 = s.get("ema_m_13")
-        ema21m = s.get("ema_m_21")
+        ema21 = s.get("ema_m_21")
         ema34 = s.get("ema_m_34")
         ema55 = s.get("ema_m_55")
-
-        bull_pairs = 0
-        if all(v is not None and not pd.isna(v) for v in
-               [ema8, ema13, ema21m, ema34, ema55]):
-            pairs = [(ema8, ema13), (ema13, ema21m),
-                     (ema21m, ema34), (ema34, ema55)]
+        swing_sig = "NEUTRAL"
+        if not any(v is None or pd.isna(v) for v in
+                   [ema8, ema13, ema21, ema34, ema55]):
+            pairs = [(ema8, ema13), (ema13, ema21),
+                     (ema21, ema34), (ema34, ema55)]
             bull_pairs = sum(1 for a, b in pairs if a > b)
+            swing_score = {4: 100, 3: 80, 2: 50, 1: 20, 0: 0}.get(bull_pairs, 50)
+            swing_sig = {4: "FULL_BULL", 3: "BULL", 2: "WEAK_BULL",
+                         1: "WEAK_BEAR", 0: "FULL_BEAR"}.get(bull_pairs, "NEUTRAL")
 
-            swing_map = {4: 100, 3: 80, 2: 50, 1: 20, 0: 0}
-            swing_score = swing_map.get(bull_pairs, 0)
-
-            if bull_pairs == 4:
-                swing_sig = "FULL_BULL"
-            elif bull_pairs == 3:
-                swing_sig = "BULL"
-            elif bull_pairs == 2:
-                swing_sig = "WEAK_BULL"
-            elif bull_pairs == 1:
-                swing_sig = "WEAK_BEAR"
-            else:
-                swing_sig = "FULL_BEAR"
-        else:
-            swing_sig = "NO_DATA"
-
-        # ===== KHUNG DÀI (Position) =====
-        pos_score = 0
+        # Position
+        pos_score = 50
         ema50 = s.get("ema_l_50")
         ema100 = s.get("ema_l_100")
         ema200 = s.get("ema_l_200")
-
-        if all(v is not None and not pd.isna(v) for v in [ema50, ema100, ema200]):
+        pos_sig = "NEUTRAL"
+        if not any(v is None or pd.isna(v) for v in [ema50, ema100, ema200]):
             if close > ema50 > ema100 > ema200:
-                pos_score = 100
-                pos_sig = "LONG_BULL"
+                pos_score, pos_sig = 100, "LONG_BULL"
             elif close > ema50 > ema200:
-                pos_score = 75
-                pos_sig = "BULL"
+                pos_score, pos_sig = 75, "BULL"
             elif close < ema50 < ema100 < ema200:
-                pos_score = 0
-                pos_sig = "LONG_BEAR"
+                pos_score, pos_sig = 0, "LONG_BEAR"
             else:
-                pos_score = 40
-                pos_sig = "MIXED"
-        else:
-            pos_sig = "NO_DATA"
+                pos_score, pos_sig = 40, "MIXED"
 
-        # ===== TỔNG HỢP =====
-        final_raw = (
-            intra_score * 0.30
-            + swing_score * 0.50
-            + pos_score * 0.20
-        )
-
-        # Scale về [0, 25] để tương thích với max cũ
+        # Tổng hợp
+        final_raw = intra_score * 0.30 + swing_score * 0.50 + pos_score * 0.20
         final_score = final_raw / 100 * 25
 
-        detail = {
+        return round(final_score, 2), {
             "status": swing_sig,
             "bull_pairs": bull_pairs,
-            "intraday": {
-                "signal": intra_sig,
-                "raw_score": intra_score,
-                "ema5": round(ema5, 2) if ema5 else None,
-                "ema9": round(ema9, 2) if ema9 else None,
-                "ema21": round(ema21, 2) if ema21 else None,
-            },
+            "intraday": {"signal": intra_sig, "raw": intra_score},
             "swing": {
-                "signal": swing_sig,
-                "raw_score": swing_score,
+                "signal": swing_sig, "raw": swing_score,
                 "ema8": round(ema8, 2) if ema8 else None,
                 "ema13": round(ema13, 2) if ema13 else None,
-                "ema21": round(ema21m, 2) if ema21m else None,
+                "ema21": round(ema21, 2) if ema21 else None,
                 "ema34": round(ema34, 2) if ema34 else None,
                 "ema55": round(ema55, 2) if ema55 else None,
             },
-            "position": {
-                "signal": pos_sig,
-                "raw_score": pos_score,
-                "ema50": round(ema50, 2) if ema50 else None,
-                "ema100": round(ema100, 2) if ema100 else None,
-                "ema200": round(ema200, 2) if ema200 else None,
-            },
+            "position": {"signal": pos_sig, "raw": pos_score},
         }
-
-        return round(final_score, 2), detail
 
     # ============================================================
     # 5. CHẤM ĐIỂM MACD (max 20)
@@ -337,14 +276,10 @@ class TechnicalAnalyzer:
             return 0, {"status": "no_data"}
 
         score = 0
-        detail = {}
+        detail = {"status": "ok"}
 
-        if macd > sig:
-            score = 12
-            detail["above_signal"] = True
-        else:
-            score = 3
-            detail["above_signal"] = False
+        score = 12 if macd > sig else 3
+        detail["above_signal"] = macd > sig
 
         if hist > 0:
             score += 5
@@ -359,7 +294,6 @@ class TechnicalAnalyzer:
             else:
                 detail["hist_rising"] = False
 
-        # Fresh cross
         if macd > sig and prev_hist is not None and prev_hist < 0 and hist > 0:
             score = max(score, 20)
             detail["fresh_cross"] = "bullish"
@@ -367,66 +301,35 @@ class TechnicalAnalyzer:
             score = 0
             detail["fresh_cross"] = "bearish"
 
-        if macd > 0:
-            detail["above_zero"] = True
-
         detail["values"] = {
             "macd": round(macd, 3),
             "signal": round(sig, 3),
             "hist": round(hist, 3),
         }
-        detail["status"] = "ok"
-
         return min(20, score), detail
 
     # ============================================================
-    # 6. CHẤM ĐIỂM RSI (max 15) - THRESHOLD ĐỘNG
+    # 6. CHẤM ĐIỂM RSI (max 15) — Threshold cố định từ config tối ưu
     # ============================================================
     def _score_rsi(self, s):
-        """
-        RSI threshold ĐỘNG theo chế độ thị trường.
-        - TREND tăng: oversold ở 40, overbought ở 80
-        - SIDEWAY: oversold 35, overbought 65
-        - VOLATILE: oversold 30, overbought 70
-        """
         rsi = s.get("rsi")
         if rsi is None or pd.isna(rsi):
             return 0, {"status": "no_data"}
 
-        regime = self.regime
-
-        # Xác định threshold theo regime
-        if "TREND_STRONG" in regime:
-            over_sold_mild = 40
-            over_bought_mild = 75
-            over_sold_strong = 25
-            over_bought_strong = 85
-        elif "SIDEWAY_CALM" in regime:
-            over_sold_mild = 35
-            over_bought_mild = 65
-            over_sold_strong = 25
-            over_bought_strong = 75
-        elif "SIDEWAY_VOLATILE" in regime:
-            over_sold_mild = 30
-            over_bought_mild = 70
-            over_sold_strong = 20
-            over_bought_strong = 80
-        else:  # TRANSITION
-            over_sold_mild = 40
-            over_bought_mild = 60
-            over_sold_strong = 30
-            over_bought_strong = 70
+        # Threshold cố định (config tối ưu)
+        over_sold_mild = 40
+        over_bought_mild = 60
+        over_sold_strong = 30
+        over_bought_strong = 70
 
         detail = {
             "value": round(rsi, 1),
-            "regime": regime,
             "thresholds": {
-                "oversold_mild": over_sold_mild,
-                "overbought_mild": over_bought_mild,
+                "oversold": over_sold_mild,
+                "overbought": over_bought_mild,
             },
         }
 
-        # ===== CHẤM ĐIỂM =====
         if over_sold_mild <= rsi <= over_bought_mild:
             score = 15
             detail["status"] = "ideal"
@@ -434,19 +337,19 @@ class TechnicalAnalyzer:
         elif over_sold_strong <= rsi < over_sold_mild:
             score = 13
             detail["status"] = "oversold_mild"
-            detail["note"] = f"Quá bán nhẹ (< {over_sold_mild})"
+            detail["note"] = f"Quá bán nhẹ"
         elif rsi < over_sold_strong:
             score = 10
             detail["status"] = "oversold_strong"
-            detail["note"] = f"Quá bán mạnh (< {over_sold_strong})"
+            detail["note"] = f"Quá bán mạnh"
         elif over_bought_mild < rsi <= over_bought_strong:
             score = 8
             detail["status"] = "overbought_mild"
-            detail["note"] = f"Tăng nóng (> {over_bought_mild})"
+            detail["note"] = f"Tăng nóng"
         else:
             score = 2
             detail["status"] = "overbought_strong"
-            detail["note"] = f"Quá mua mạnh (> {over_bought_strong})"
+            detail["note"] = f"Quá mua mạnh"
 
         prev_rsi = s.get("prev_rsi")
         if prev_rsi is not None and not pd.isna(prev_rsi):
@@ -465,25 +368,15 @@ class TechnicalAnalyzer:
         detail = {"ratio": round(ratio, 2)}
 
         if ratio >= 2.0:
-            score = 15
-            detail["status"] = "surge"
-            detail["note"] = "Volume đột biến"
+            score, detail["status"] = 15, "surge"
         elif ratio >= 1.5:
-            score = 13
-            detail["status"] = "high"
-            detail["note"] = "Volume cao"
+            score, detail["status"] = 13, "high"
         elif ratio >= 1.0:
-            score = 10
-            detail["status"] = "normal"
-            detail["note"] = "Volume bình thường"
+            score, detail["status"] = 10, "normal"
         elif ratio >= 0.7:
-            score = 6
-            detail["status"] = "low"
-            detail["note"] = "Volume thấp"
+            score, detail["status"] = 6, "low"
         else:
-            score = 3
-            detail["status"] = "very_low"
-            detail["note"] = "Volume rất thấp"
+            score, detail["status"] = 3, "very_low"
 
         return score, detail
 
@@ -494,51 +387,32 @@ class TechnicalAnalyzer:
         close = s.get("close", 0)
         upper = s.get("bb_upper")
         lower = s.get("bb_lower")
-        middle = s.get("bb_middle")
         width = s.get("bb_width")
 
-        if any(v is None or pd.isna(v) for v in [upper, lower, middle]):
+        if any(v is None or pd.isna(v) for v in [upper, lower]):
             return 0, {"status": "no_data"}
 
-        bb_range = upper - lower
-        if bb_range <= 0:
+        rng = upper - lower
+        if rng <= 0:
             return 5, {"status": "no_range"}
 
-        position = (close - lower) / bb_range
-        detail = {"position": round(position, 2), "width": round(width, 2) if width else None}
+        pos = (close - lower) / rng
+        detail = {
+            "position": round(pos, 2),
+            "width": round(width, 2) if width else None,
+            "status": "ok",
+        }
 
-        # Threshold ĐỘNG theo regime
-        if "SIDEWAY" in self.regime:
-            # Sideway: gần lower là mua, gần upper là bán
-            if position < 0.1:
-                score = 15
-                detail["status"] = "near_lower"
-            elif position < 0.3:
-                score = 13
-                detail["status"] = "lower_zone"
-            elif position < 0.5:
-                score = 10
-                detail["status"] = "lower_half"
-            elif position < 0.7:
-                score = 7
-                detail["status"] = "upper_half"
-            elif position < 0.9:
-                score = 4
-                detail["status"] = "near_upper"
-            else:
-                score = 2
-                detail["status"] = "above_upper"
+        if pos < 0.2:
+            score, detail["status"] = 15, "near_lower"
+        elif pos < 0.4:
+            score, detail["status"] = 12, "lower_half"
+        elif pos < 0.6:
+            score, detail["status"] = 10, "middle"
+        elif pos < 0.8:
+            score, detail["status"] = 6, "upper_half"
         else:
-            # Trend: chỉ cần giá không quá xa middle
-            if 0.2 <= position <= 0.8:
-                score = 12
-                detail["status"] = "mid_range"
-            elif position < 0.2:
-                score = 10
-                detail["status"] = "near_lower"
-            else:
-                score = 6
-                detail["status"] = "near_upper"
+            score, detail["status"] = 3, "near_upper"
 
         if width and width < 5:
             detail["squeeze"] = True
@@ -557,44 +431,35 @@ class TechnicalAnalyzer:
         detail = {"atr_pct": round(atr_pct, 2)}
 
         if 1.0 <= atr_pct <= 3.0:
-            score = 10
-            detail["status"] = "optimal"
+            score, detail["status"] = 10, "optimal"
         elif 3.0 < atr_pct <= 5.0:
-            score = 6
-            detail["status"] = "high"
+            score, detail["status"] = 6, "high"
         elif atr_pct < 1.0:
-            score = 4
-            detail["status"] = "low"
+            score, detail["status"] = 4, "low"
         else:
-            score = 2
-            detail["status"] = "extreme"
+            score, detail["status"] = 2, "extreme"
 
         return score, detail
 
     # ============================================================
-    # 10. TỔNG ĐIỂM KỸ THUẬT (dùng weight động)
+    # 10. TỔNG ĐIỂM KỸ THUẬT
     # ============================================================
     def technical_score(self):
-        """
-        Chấm điểm với WEIGHT ĐỘNG theo regime.
-        """
         s = self.get_current_signals()
         if not s:
             return 0, {"error": "Không đủ dữ liệu"}
 
-        # Lấy weight động
         W = self.weights
-        total_weight = sum(W.values())
+        total_w = sum(W.values())
 
-        # Chấm từng chỉ báo (raw score với max gốc)
-        ema_raw, ema_detail = self._score_ema_ribbon(s)   # max 25
-        macd_raw, macd_detail = self._score_macd(s)       # max 20
-        rsi_raw, rsi_detail = self._score_rsi(s)          # max 15
-        vol_raw, vol_detail = self._score_volume(s)       # max 15
-        bb_raw, bb_detail = self._score_bollinger(s)      # max 15
-        atr_raw, atr_detail = self._score_atr(s)          # max 10
+        ema_raw, ema_detail = self._score_ema_ribbon(s)
+        macd_raw, macd_detail = self._score_macd(s)
+        rsi_raw, rsi_detail = self._score_rsi(s)
+        vol_raw, vol_detail = self._score_volume(s)
+        bb_raw, bb_detail = self._score_bollinger(s)
+        atr_raw, atr_detail = self._score_atr(s)
 
-        # Chuẩn hóa về [0, 100]
+        # Scale từng chỉ báo về [0,100]
         ema_pct = ema_raw / 25 * 100
         macd_pct = macd_raw / 20 * 100
         rsi_pct = rsi_raw / 15 * 100
@@ -602,53 +467,53 @@ class TechnicalAnalyzer:
         bb_pct = bb_raw / 15 * 100
         atr_pct_scaled = atr_raw / 10 * 100
 
-        # Tính điểm tổng với weight động
-        weighted = (
+        # Weighted sum
+        total = (
             ema_pct * W["ema_ribbon"]
             + macd_pct * W["macd"]
             + rsi_pct * W["rsi"]
             + vol_pct * W["volume"]
             + bb_pct * W["bollinger"]
             + atr_pct_scaled * W["atr"]
-        ) / total_weight
+        ) / total_w
 
-        total = round(weighted, 1)
+        total = round(total, 1)
 
-        # ===== CONFIDENCE =====
-        bullish_count = 0
-        if ema_pct >= 70: bullish_count += 1
-        if macd_pct >= 70: bullish_count += 1
-        if rsi_pct >= 80: bullish_count += 1
-        if vol_pct >= 80: bullish_count += 1
-        if bb_pct >= 70: bullish_count += 1
-        if atr_pct_scaled >= 60: bullish_count += 1
+        # Confidence
+        bull = 0
+        if ema_pct >= 70: bull += 1
+        if macd_pct >= 70: bull += 1
+        if rsi_pct >= 80: bull += 1
+        if vol_pct >= 80: bull += 1
+        if bb_pct >= 70: bull += 1
+        if atr_pct_scaled >= 60: bull += 1
 
-        bearish_count = 0
-        if ema_pct <= 25: bearish_count += 1
-        if macd_pct <= 25: bearish_count += 1
-        if rsi_pct <= 30: bearish_count += 1
-        if bb_pct <= 30: bearish_count += 1
+        bear = 0
+        if ema_pct <= 25: bear += 1
+        if macd_pct <= 25: bear += 1
+        if rsi_pct <= 30: bear += 1
+        if bb_pct <= 30: bear += 1
 
-        if bullish_count >= 5:
-            confidence = "HIGH"
-        elif bullish_count >= 3:
-            confidence = "MEDIUM"
-        elif bearish_count >= 3:
-            confidence = "LOW"
-        else:
-            confidence = "LOW"
+        if bull >= 5: confidence = "HIGH"
+        elif bull >= 3: confidence = "MEDIUM"
+        elif bear >= 3: confidence = "LOW"
+        else: confidence = "LOW"
 
-        # ===== ENTRY DECISION =====
-        signal, entry_action, entry_reason = self._entry_decision(
-            total, confidence, bullish_count, bearish_count, s
+        # Entry decision
+        signal, action, reason = self._entry_decision(
+            total, confidence, bull, bear, s
         )
 
-        # ===== RISK MANAGEMENT =====
+        # Risk Management — dùng config tối ưu
+        tc = getattr(config, "TRADING_CONFIG", {})
+        sl_mult = tc.get("sl_mult", 3.0)
+        tp_mult = tc.get("tp_mult", 5.0)
+
         close = s.get("close", 0)
         atr = s.get("atr", 0)
-        stop_loss = round(close - 1.5 * atr, 2) if atr else None
-        tp1 = round(close + 2.0 * atr, 2) if atr else None
-        tp2 = round(close + 3.5 * atr, 2) if atr else None
+        stop_loss = round(close - sl_mult * atr, 2) if atr else None
+        tp1 = round(close + tp_mult * atr, 2) if atr else None
+        tp2 = round(close + (tp_mult * 1.5) * atr, 2) if atr else None
         rr = round((tp1 - close) / (close - stop_loss), 2) \
             if stop_loss and close > stop_loss else None
 
@@ -670,13 +535,15 @@ class TechnicalAnalyzer:
                                 "weight": W["atr"], **atr_detail},
             },
             "confidence": confidence,
-            "bullish_count": bullish_count,
-            "bearish_count": bearish_count,
-            "entry_action": entry_action,
-            "entry_reason": entry_reason,
+            "bullish_count": bull,
+            "bearish_count": bear,
+            "entry_action": action,
+            "entry_reason": reason,
             "risk_management": {
                 "close": close,
                 "atr": round(atr, 2) if atr else None,
+                "sl_mult": sl_mult,
+                "tp_mult": tp_mult,
                 "stop_loss": stop_loss,
                 "take_profit_1": tp1,
                 "take_profit_2": tp2,
@@ -690,41 +557,33 @@ class TechnicalAnalyzer:
     # 11. ENTRY DECISION
     # ============================================================
     def _entry_decision(self, score, confidence, bull, bear, s):
-        rsi = s.get("rsi", 50)
-        regime = self.regime
+        tc = getattr(config, "TRADING_CONFIG", {})
+        entry_thr = tc.get("entry_threshold", 55)
+        exit_thr = tc.get("exit_threshold", 30)
 
-        # Regime TREND_STRONG: chỉ vào lệnh theo xu hướng
-        if "TREND_STRONG" in regime:
-            if score >= 75 and confidence == "HIGH":
-                return ("MUA MẠNH", "ENTER_NOW",
-                        f"Trend mạnh + điểm {score}. Vào 70% vị thế.")
-            if score >= 60:
-                return ("MUA", "ENTER_PARTIAL",
-                        f"Trend mạnh + điểm {score}. Vào 40-50% vị thế.")
-            if score <= 30:
-                return ("BÁN", "EXIT_OR_SHORT",
-                        f"Trend đảo chiều. Thoát hàng.")
-            return ("GIỮ", "HOLD",
-                    f"Trend mạnh nhưng điểm {score} chưa đủ.")
+        # ===== MUA MẠNH =====
+        if score >= 75 and confidence == "HIGH":
+            return ("MUA MẠNH", "ENTER_NOW",
+                    f"Điểm {score} + confidence cao. Vào ngay 70% vị thế.")
 
-        # Regime SIDEWAY: mua gần lower, bán gần upper
-        if "SIDEWAY" in regime:
-            if score >= 70 and rsi < 40:
-                return ("MUA", "ENTER_PARTIAL",
-                        f"Sideway - RSI {rsi:.0f} quá bán. Mua 30-40%.")
-            if score <= 35 and rsi > 65:
-                return ("BÁN", "EXIT_OR_SHORT",
-                        f"Sideway - RSI {rsi:.0f} quá mua. Bán.")
-            return ("CHỜ", "WAIT",
-                    f"Sideway - chờ RSI về vùng cực.")
-
-        # TRANSITION
-        if score >= 70 and confidence in ("HIGH", "MEDIUM"):
+        # ===== MUA =====
+        if score >= entry_thr and confidence in ("HIGH", "MEDIUM"):
             return ("MUA", "ENTER_PARTIAL",
-                    f"Điểm {score}, confidence {confidence}. Vào 40%.")
-        if score >= 55:
+                    f"Điểm {score} >= {entry_thr}. Vào 40-50% vị thế.")
+
+        # ===== MUA THĂM DÒ =====
+        if score >= entry_thr - 5 and bull >= 3:
             return ("MUA THĂM DÒ", "ENTER_SMALL",
                     f"Điểm {score}. Vào 20-30% thăm dò.")
-        if score >= 40:
-            return ("CHỜ", "WAIT", f"Điểm {score} - chờ tín hiệu.")
-        return ("KHÔNG VÀO", "AVOID", f"Điểm {score} - không nên vào.")
+
+        # ===== CHỜ =====
+        if exit_thr <= score < entry_thr:
+            return ("CHỜ", "WAIT",
+                    f"Điểm {score} - tín hiệu chưa rõ.")
+
+        # ===== KHÔNG VÀO / BÁN =====
+        if score < exit_thr or bear >= 3:
+            return ("BÁN", "EXIT_OR_SHORT",
+                    f"Điểm {score} - tín hiệu tiêu cực. Thoát hàng.")
+
+        return ("TRUNG TÍNH", "NEUTRAL", "Tín hiệu hỗn hợp.")
