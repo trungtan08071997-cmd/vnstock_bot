@@ -1,0 +1,42 @@
+name: Daily Long-Term Scan
+
+on:
+  schedule:
+    # 8h sáng VN (T2-T6) = 1h UTC
+    - cron: '0 1 * * 1-5'
+    # 20h tối VN (T2-T6) = 13h UTC - scan lại buổi tối
+    - cron: '0 13 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 lxml pandas numpy schedule
+          pip install "lotusmarket[fetchers]"
+      
+      - name: Run daily scanner
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python daily_scanner.py
+      
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-scan-${{ github.run_number }}
+          path: |
+            output/daily_scan_report.json
+            output/scanner_history.json
+          retention-days: 30
