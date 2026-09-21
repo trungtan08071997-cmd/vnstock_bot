@@ -1,0 +1,31 @@
+name: Backtest Dynamic vs Static
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 lxml pandas numpy schedule
+          pip install "lotusmarket[fetchers]"
+
+      - name: Run backtest
+        run: python backtest_engine.py
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-report
+          path: output/backtest_report.json
