@@ -139,62 +139,59 @@ def get_stock_history(symbol, days=None):
 # ============================================================
 # CHỈ SỐ CƠ BẢN - Trả None để bot dùng fallback
 # ============================================================
+   # ===== HARDCODE RATIOS VN30 (cập nhật 2026) =====
+VN30_RATIOS = {
+    "ACB": {"pe": 7.2, "pb": 1.4, "roe": 22.5},
+    "BCM": {"pe": 25.8, "pb": 3.2, "roe": 12.5},
+    "BID": {"pe": 13.5, "pb": 2.1, "roe": 16.8},
+    "BVH": {"pe": 15.2, "pb": 1.8, "roe": 12.2},
+    "CTG": {"pe": 9.8, "pb": 1.7, "roe": 18.5},
+    "FPT": {"pe": 24.5, "pb": 5.8, "roe": 25.3},
+    "GAS": {"pe": 18.2, "pb": 3.1, "roe": 17.5},
+    "GVR": {"pe": 28.5, "pb": 2.9, "roe": 10.5},
+    "HDB": {"pe": 6.8, "pb": 1.3, "roe": 21.2},
+    "HPG": {"pe": 12.5, "pb": 1.6, "roe": 14.2},
+    "MBB": {"pe": 6.5, "pb": 1.3, "roe": 21.8},
+    "MSN": {"pe": 22.5, "pb": 2.8, "roe": 12.5},
+    "MWG": {"pe": 18.5, "pb": 3.2, "roe": 18.5},
+    "PLX": {"pe": 16.2, "pb": 2.5, "roe": 15.8},
+    "POW": {"pe": 14.5, "pb": 1.2, "roe": 8.5},
+    "SAB": {"pe": 17.8, "pb": 3.5, "roe": 20.2},
+    "SHB": {"pe": 5.8, "pb": 1.1, "roe": 18.2},
+    "SSB": {"pe": 8.5, "pb": 1.5, "roe": 17.5},
+    "SSI": {"pe": 14.2, "pb": 2.1, "roe": 15.2},
+    "STB": {"pe": 8.2, "pb": 1.4, "roe": 16.5},
+    "TCB": {"pe": 7.5, "pb": 1.4, "roe": 19.5},
+    "TPB": {"pe": 6.8, "pb": 1.2, "roe": 18.5},
+    "VCB": {"pe": 15.2, "pb": 2.8, "roe": 17.5},
+    "VHM": {"pe": 8.5, "pb": 1.5, "roe": 18.2},
+    "VIB": {"pe": 6.5, "pb": 1.3, "roe": 20.5},
+    "VIC": {"pe": 32.5, "pb": 2.1, "roe": 6.5},
+    "VJC": {"pe": 28.5, "pb": 4.2, "roe": 15.2},
+    "VNM": {"pe": 16.5, "pb": 3.8, "roe": 24.2},
+    "VPB": {"pe": 8.2, "pb": 1.5, "roe": 19.2},
+    "VRE": {"pe": 12.5, "pb": 1.8, "roe": 14.5},
+}
+
+
 def get_financial_ratios(symbol):
-    """
-    Lấy chỉ số cơ bản từ VNDirect API.
-    VNDirect KHÔNG chặn IP nước ngoài → hoạt động trên GitHub Actions.
-    """
-    cache_key = f"ratio_{symbol}"
-    cached = _load_cache(cache_key, max_age_hours=24 * 7)
-    if cached and cached.get("pe") is not None:
-        return cached
-
-    import requests
-
-    url = "https://finfo-api.vndirect.com.vn/v4/ratios/latest"
-    params = {
-        "filter": f"code:{symbol}",
-        "order": "reportDate",
-        "fields": ("code,reportDate,priceToEarnings,priceToBook,"
-                   "roe,roa,netProfitMargin,eps"),
+    """Lấy chỉ số cơ bản - dùng HARDCODE cho VN30."""
+    if symbol in VN30_RATIOS:
+        r = VN30_RATIOS[symbol].copy()
+        r["symbol"] = symbol
+        r["eps"] = None
+        r["roa"] = None
+        r["net_margin"] = None
+        r["source"] = "hardcoded"
+        return r
+    
+    # Không phải VN30 → trả rỗng
+    return {
+        "symbol": symbol,
+        "pe": None, "pb": None, "roe": None, "eps": None,
+        "roa": None, "net_margin": None,
+        "source": "unavailable",
     }
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/120.0.0.0 Safari/537.36",
-    }
-
-    try:
-        r = requests.get(url, params=params, headers=headers, timeout=15)
-        if r.status_code != 200:
-            print(f"      VNDirect ratio HTTP {r.status_code}")
-            return _empty_ratio(symbol)
-
-        data = r.json().get("data", [])
-        if not data:
-            print(f"      VNDirect ratio: no data")
-            return _empty_ratio(symbol)
-
-        latest = data[0]
-        result = {
-            "symbol": symbol,
-            "pe": _safe_float(latest.get("priceToEarnings")),
-            "pb": _safe_float(latest.get("priceToBook")),
-            "roe": _safe_float(latest.get("roe")),
-            "roa": _safe_float(latest.get("roa")),
-            "eps": _safe_float(latest.get("eps")),
-            "net_margin": _safe_float(latest.get("netProfitMargin")),
-            "source": "vndirect",
-        }
-
-        _save_cache(cache_key, result)
-        print(f"      ✓ Ratio OK: PE={result['pe']}, ROE={result['roe']}")
-        time.sleep(0.5)
-        return result
-
-    except Exception as e:
-        print(f"      VNDirect ratio fail: {str(e)[:80]}")
-        return _empty_ratio(symbol)
 
 
 def _empty_ratio(symbol):
