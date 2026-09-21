@@ -412,7 +412,7 @@ if __name__ == "__main__":
     # Load data
     data, ratios_dict, vni = load_data_v2(days=400)
 
-    if len(data) < 5:
+    if len(data) < 3:
         print("❌ Không đủ dữ liệu")
         exit()
 
