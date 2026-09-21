@@ -139,3 +139,12 @@ TRADING_CONFIG = {
         "sell": 30,
     },
 }
+# ===== SCANNER CONFIG =====
+SCANNER_CONFIG = {
+    "universe": "vn100",          # vn30 | vn100 | all
+    "top_n": 20,                  # Top N cổ phiếu
+    "min_fundamental_score": 40,  # Điểm CB tối thiểu
+    "cache_ratios_hours": 168,    # Cache ratios 7 ngày
+    "news_hours_back": 24,        # Tin tức 24h qua
+    "schedule": ["08:00", "20:00"],  # 2 lần/ngày
+}
