@@ -145,7 +145,7 @@ def compute_technical_score(df, i):
 # SIMULATE với MULTI-FILTER
 # ============================================================
 def simulate_symbol_v2(symbol, df, ratios, vnindex_df,
-                        params, start_idx=210):
+                        params, start_idx=150):
     """
     Mô phỏng giao dịch với:
     - Market filter (VN-Index)
