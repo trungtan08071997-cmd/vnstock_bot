@@ -223,13 +223,14 @@ def simulate_symbol_v2(symbol, df, ratios, vnindex_df,
 
         # ===== KHÔNG GIỮ LỆNH =====
         else:
-            # ===== MARKET FILTER =====
+            # ===== MARKET FILTER (nếu có VN-Index) =====
             if vni_close is not None and vni_ma50 is not None:
                 if i < len(vni_close) and i < len(vni_ma50):
                     vni_cur = vni_close[i]
                     vni_ma = vni_ma50[i]
                     if not pd.isna(vni_ma) and vni_cur < vni_ma:
-                        continue  # VN-Index dưới MA50 → không vào lệnh
+                        continue
+            # Nếu không có VN-Index → bỏ qua filter này
 
             # ===== TREND FILTER =====
             ema200 = row.get("ema_l_200")
