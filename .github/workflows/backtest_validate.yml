@@ -1,0 +1,70 @@
+name: Backtest Verify & Validate
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Chạy verify hay validate? (verify / validate / both)'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - verify
+          - validate
+          - both
+      days:
+        description: 'Số phiên dữ liệu (500 = ~2 năm, 750 = ~3 năm)'
+        required: false
+        default: '750'
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 lxml pandas numpy schedule
+          pip install "lotusmarket[fetchers]"
+          pip install optuna
+
+      - name: Show config
+        run: |
+          echo "=== Config hiện tại ==="
+          python -c "import config; import json; print(json.dumps(config.TRADING_CONFIG, indent=2))"
+
+      - name: Run verify
+        if: ${{ github.event.inputs.mode == 'verify' || github.event.inputs.mode == 'both' }}
+        run: |
+          echo "🔍 BẮT ĐẦU VERIFY CONFIG"
+          python verify_config.py
+        continue-on-error: true
+
+      - name: Run validate
+        if: ${{ github.event.inputs.mode == 'validate' || github.event.inputs.mode == 'both' }}
+        run: |
+          echo "🔬 BẮT ĐẦU VALIDATE OUT-OF-SAMPLE"
+          python validate_config.py
+        continue-on-error: true
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-results-${{ github.run_number }}
+          path: |
+            output/validation_result.json
+            output/optimization_result.json
+            output/report.json
+          retention-days: 30
+          if-no-files-found: warn
