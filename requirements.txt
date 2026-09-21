@@ -5,3 +5,4 @@ lxml>=4.9
 pandas>=2.0
 numpy>=1.24
 schedule>=1.2
+optuna>=3.5.0
