@@ -141,9 +141,64 @@ def get_stock_history(symbol, days=None):
 # ============================================================
 def get_financial_ratios(symbol):
     """
-    Trả None để bot tự động dùng SCORING_WEIGHTS_NO_FUNDAMENTAL.
-    Bot sẽ chấm điểm dựa trên technical + sentiment.
+    Lấy chỉ số cơ bản từ VNDirect API.
+    VNDirect KHÔNG chặn IP nước ngoài → hoạt động trên GitHub Actions.
     """
+    cache_key = f"ratio_{symbol}"
+    cached = _load_cache(cache_key, max_age_hours=24 * 7)
+    if cached and cached.get("pe") is not None:
+        return cached
+
+    import requests
+
+    url = "https://finfo-api.vndirect.com.vn/v4/ratios/latest"
+    params = {
+        "filter": f"code:{symbol}",
+        "order": "reportDate",
+        "fields": ("code,reportDate,priceToEarnings,priceToBook,"
+                   "roe,roa,netProfitMargin,eps"),
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/120.0.0.0 Safari/537.36",
+    }
+
+    try:
+        r = requests.get(url, params=params, headers=headers, timeout=15)
+        if r.status_code != 200:
+            print(f"      VNDirect ratio HTTP {r.status_code}")
+            return _empty_ratio(symbol)
+
+        data = r.json().get("data", [])
+        if not data:
+            print(f"      VNDirect ratio: no data")
+            return _empty_ratio(symbol)
+
+        latest = data[0]
+        result = {
+            "symbol": symbol,
+            "pe": _safe_float(latest.get("priceToEarnings")),
+            "pb": _safe_float(latest.get("priceToBook")),
+            "roe": _safe_float(latest.get("roe")),
+            "roa": _safe_float(latest.get("roa")),
+            "eps": _safe_float(latest.get("eps")),
+            "net_margin": _safe_float(latest.get("netProfitMargin")),
+            "source": "vndirect",
+        }
+
+        _save_cache(cache_key, result)
+        print(f"      ✓ Ratio OK: PE={result['pe']}, ROE={result['roe']}")
+        time.sleep(0.5)
+        return result
+
+    except Exception as e:
+        print(f"      VNDirect ratio fail: {str(e)[:80]}")
+        return _empty_ratio(symbol)
+
+
+def _empty_ratio(symbol):
+    """Trả về dict rỗng khi không lấy được."""
     return {
         "symbol": symbol,
         "pe": None, "pb": None, "roe": None, "eps": None,
