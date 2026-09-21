@@ -103,3 +103,39 @@ HISTORY_DAYS = 250          # Số ngày lịch sử (~1 năm)
 # CACHE
 # ============================================================
 CACHE_DIR = "output/cache"
+# ============================================================
+# TRADING CONFIG - Tối ưu từ Bayesian Optimization (100 trials)
+# ============================================================
+# Chạy lúc: 21/09/2026
+# Kết quả: STATIC thắng DYNAMIC (score 0.358 vs -0.220)
+# ============================================================
+TRADING_CONFIG = {
+    # Ngưỡng vào lệnh (score tổng hợp >= giá trị này)
+    "entry_threshold": 55,
+    
+    # Ngưỡng thoát lệnh (score < giá trị này → bán)
+    "exit_threshold": 30,
+    
+    # Stop Loss = entry_price - SL_MULT × ATR
+    "sl_mult": 3.0,
+    
+    # Take Profit = entry_price + TP_MULT × ATR
+    "tp_mult": 5.0,
+    
+    # Số ngày giữ lệnh tối đa
+    "max_hold_days": 25,
+    
+    # Có dùng trend filter (EMA200) không?
+    "use_trend_filter": False,
+    
+    # Có dùng dynamic weights không?
+    "use_dynamic_weights": False,
+    
+    # Ngưỡng tín hiệu cho bot hiển thị
+    "signal_thresholds": {
+        "strong_buy": 75,
+        "buy": 55,       # ← Đổi từ 60 → 55
+        "hold": 40,      # ← Đổi từ 45 → 40
+        "sell": 30,
+    },
+}
