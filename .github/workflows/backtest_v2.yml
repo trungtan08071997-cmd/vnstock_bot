@@ -1,0 +1,37 @@
+name: Backtest v2 - Technical + Fundamental
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Số phiên dữ liệu'
+        required: false
+        default: '400'
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 lxml pandas numpy schedule
+          pip install "lotusmarket[fetchers]"
+
+      - name: Run backtest v2
+        run: python backtest_engine_v2.py
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-v2-report
+          path: output/backtest_v2_report.json
+          retention-days: 30
