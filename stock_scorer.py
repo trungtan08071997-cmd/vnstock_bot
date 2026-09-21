@@ -1,13 +1,12 @@
 """
 Chấm điểm tổng hợp và sàng lọc cổ phiếu
-- Song song 5 luồng
-- Xử lý an toàn với .get() cho mọi key
-- Format chi tiết chỉ báo
+- Chạy song song 5 luồng
+- Áp dụng config tối ưu từ Bayesian Optimization
+- Format chi tiết 6 chỉ báo + Risk Management
 """
 import config
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from data_fetcher import get_stock_history, get_financial_ratios
-
 from technical_analyzer import TechnicalAnalyzer
 from fundamental_analyzer import fundamental_score, passes_basic_filter
 from sector_analyzer import (get_sector, sector_score, get_top_sectors,
@@ -15,10 +14,10 @@ from sector_analyzer import (get_sector, sector_score, get_top_sectors,
 
 
 # ============================================================
-# CHẤM ĐIỂM 1 CỔ PHIẾU
+# 1. CHẤM ĐIỂM 1 CỔ PHIẾU
 # ============================================================
 def composite_score(symbol):
-    """Chấm điểm tổng hợp cho một cổ phiếu."""
+    """Chấm điểm tổng hợp cho 1 cổ phiếu."""
     result = {
         "symbol": symbol,
         "sector": get_sector(symbol),
@@ -29,11 +28,11 @@ def composite_score(symbol):
         "total": 0,
         "adjusted_total": 0,
         "signal": "N/A",
+        "has_fundamental": False,
         "details": {},
-        "has_fundamental": False,   # 👈 KEY QUAN TRỌNG
     }
 
-    # === 1. Dữ liệu giá ===
+    # ===== 1. DỮ LIỆU GIÁ =====
     df = get_stock_history(symbol)
     if df is None or len(df) < 50:
         result["details"]["error"] = "Không đủ dữ liệu giá"
@@ -44,24 +43,23 @@ def composite_score(symbol):
     result["technical"] = tech_score
     result["details"]["technical"] = tech_details
 
-    # === 2. Chỉ số cơ bản ===
+    # ===== 2. CHỈ SỐ CƠ BẢN =====
     ratios = get_financial_ratios(symbol)
     fund_score, fund_details = fundamental_score(ratios)
     result["fundamental"] = fund_score
     result["details"]["fundamental"] = fund_details
     result["details"]["ratios"] = ratios
 
-    # Kiểm tra có dữ liệu cơ bản không
     has_fund = (
         bool(ratios) and
         any(ratios.get(k) is not None for k in ["pe", "pb", "roe"])
     )
     result["has_fundamental"] = has_fund
 
-    # === 3. Sentiment (mặc định 50, cập nhật từ main) ===
+    # ===== 3. SENTIMENT (mặc định 50, cập nhật từ main) =====
     result["sentiment"] = 50
 
-    # === 4. Điểm tổng hợp ===
+    # ===== 4. ĐIỂM TỔNG HỢP =====
     if has_fund:
         w = config.SCORING_WEIGHTS
         total = (tech_score * w["technical"]
@@ -74,12 +72,12 @@ def composite_score(symbol):
 
     result["total"] = round(total, 1)
 
-    # === 5. Điểm ngành ===
+    # ===== 5. ĐIỂM NGÀNH =====
     sec = sector_score(result["sector"])
     result["sector_score"] = sec.get("total", 0)
     result["details"]["sector"] = sec
 
-    # === 6. Điểm điều chỉnh ===
+    # ===== 6. ĐIỂM ĐIỀU CHỈNH =====
     sw = config.SECTOR_WEIGHT
     result["adjusted_total"] = round(
         total * (1 - sw) + result["sector_score"] * sw, 1)
@@ -89,30 +87,42 @@ def composite_score(symbol):
 
 
 def _get_signal(score):
-    t = config.SIGNAL_THRESHOLDS
-    if score >= t["strong_buy"]: return "MUA MẠNH"
-    if score >= t["buy"]: return "MUA"
-    if score >= t["hold"]: return "GIỮ"
-    if score >= t["sell"]: return "BÁN"
+    """Xác định tín hiệu — dùng signal_thresholds từ config tối ưu."""
+    tc = getattr(config, "TRADING_CONFIG", {})
+    t = tc.get("signal_thresholds", config.SIGNAL_THRESHOLDS)
+
+    if score >= t["strong_buy"]:
+        return "MUA MẠNH"
+    if score >= t["buy"]:
+        return "MUA"
+    if score >= t["hold"]:
+        return "GIỮ"
+    if score >= t["sell"]:
+        return "BÁN"
     return "BÁN MẠNH"
 
 
 # ============================================================
-# SÀNG LỌC - CHẠY SONG SONG
+# 2. SÀNG LỌC
 # ============================================================
 def screen_stocks(watchlist, sentiment_map=None):
-    """Sàng lọc cổ phiếu - chạy song song 5 luồng."""
+    """Sàng lọc cổ phiếu — chạy song song 5 luồng."""
     all_sectors_ranked = rank_sectors()
-    sector_rank_map = {s["sector"]: i + 1 for i, s in enumerate(all_sectors_ranked)}
     top_sectors = [s["sector"] for s in all_sectors_ranked[:config.TOP_SECTORS]]
     weak_sectors = [s["sector"] for s in all_sectors_ranked[-3:]]
 
+    tc = getattr(config, "TRADING_CONFIG", {})
+    min_score = tc.get("exit_threshold", 30) + 10  # = 40
+
     print(f"🏭 Top ngành ưu tiên: {', '.join(top_sectors)}")
-    print(f"⚠️  Ngành yếu (bị trừ điểm): {', '.join(weak_sectors)}")
-    print(f"📊 Sẽ phân tích TẤT CẢ {len(watchlist)} mã (song song 5 luồng)\n")
+    print(f"⚠️  Ngành yếu: {', '.join(weak_sectors)}")
+    print(f"📊 Sẽ phân tích {len(watchlist)} mã (song song 5 luồng)")
+    print(f"⚙️  Config: Entry >= {tc.get('entry_threshold', 55)} | "
+          f"SL {tc.get('sl_mult', 3.0)} ATR | "
+          f"TP {tc.get('tp_mult', 5.0)} ATR | "
+          f"Max hold {tc.get('max_hold_days', 25)}d\n")
 
     def analyze_one(sym):
-        """Phân tích 1 mã - dùng .get() để an toàn."""
         try:
             sector = get_sector(sym)
             is_priority = sector in top_sectors
@@ -123,11 +133,11 @@ def screen_stocks(watchlist, sentiment_map=None):
             if score.get("details", {}).get("error"):
                 return None, {"reason": "no_data", "sym": sym}
 
-            # Áp sentiment
+            # Áp sentiment từ tin tức
             if sentiment_map and sym in sentiment_map:
                 score["sentiment"] = sentiment_map[sym]
 
-            # Tính lại total (dùng .get() an toàn)
+            # Tính lại total
             has_fund = score.get("has_fundamental", False)
             tech = score.get("technical", 0)
             fund = score.get("fundamental", 0)
@@ -140,8 +150,7 @@ def screen_stocks(watchlist, sentiment_map=None):
                          + sent * w["sentiment"])
             else:
                 w = config.SCORING_WEIGHTS_NO_FUNDAMENTAL
-                total = (tech * w["technical"]
-                         + sent * w["sentiment"])
+                total = tech * w["technical"] + sent * w["sentiment"]
 
             score["total"] = round(total, 1)
 
@@ -169,7 +178,7 @@ def screen_stocks(watchlist, sentiment_map=None):
             if not passes_basic_filter(ratios):
                 return None, {"reason": "filter", "sym": sym}
 
-            if score["adjusted_total"] < 40:
+            if score["adjusted_total"] < min_score:
                 return None, {"reason": "low_score", "sym": sym}
 
             return score, None
@@ -177,15 +186,13 @@ def screen_stocks(watchlist, sentiment_map=None):
         except Exception as e:
             return None, {"reason": f"error: {str(e)[:50]}", "sym": sym}
 
-    # ===== CHẠY SONG SONG =====
     results = []
-    skipped = {"no_data": 0, "filter": 0, "low_score": 0}
+    skipped = {"no_data": 0, "filter": 0, "low_score": 0, "error": 0}
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(analyze_one, sym): sym for sym in watchlist}
 
         completed = 0
-        total_n = len(watchlist)
         for future in as_completed(futures):
             sym = futures[future]
             completed += 1
@@ -197,20 +204,20 @@ def screen_stocks(watchlist, sentiment_map=None):
                 score, skip = future.result()
                 if score:
                     results.append(score)
-                    print(f"  [{completed:2d}/{total_n}] {tag} {sym} [{sector}] → "
-                          f"✅ {score['adjusted_total']}/100 "
+                    print(f"  [{completed:2d}/{len(watchlist)}] {tag} {sym} "
+                          f"[{sector}] → ✅ {score['adjusted_total']}/100 "
                           f"[{score['signal']}] {score['sector_bonus']}")
                 else:
-                    reason = skip["reason"]
+                    reason = skip.get("reason", "unknown")
                     if reason in skipped:
                         skipped[reason] += 1
                     else:
-                        skipped["no_data"] += 1
-                    print(f"  [{completed:2d}/{total_n}] {tag} {sym} [{sector}] → "
-                          f"⚪ {reason}")
+                        skipped["error"] += 1
+                    print(f"  [{completed:2d}/{len(watchlist)}] {tag} {sym} "
+                          f"[{sector}] → ⚪ {reason}")
             except Exception as e:
-                print(f"  [{completed:2d}/{total_n}] {tag} {sym} → ❌ {str(e)[:60]}")
-                skipped["no_data"] += 1
+                print(f"  [{completed:2d}/{len(watchlist)}] {tag} {sym} → ❌ {str(e)[:50]}")
+                skipped["error"] += 1
 
     results.sort(key=lambda x: x["adjusted_total"], reverse=True)
 
@@ -219,15 +226,17 @@ def screen_stocks(watchlist, sentiment_map=None):
     print(f"   ❌ Không dữ liệu: {skipped['no_data']}")
     print(f"   ⚪ Bị lọc cơ bản: {skipped['filter']}")
     print(f"   ⚪ Điểm thấp: {skipped['low_score']}")
+    if skipped["error"] > 0:
+        print(f"   ⚠️  Lỗi khác: {skipped['error']}")
 
     return results[:config.TOP_STOCKS]
 
 
 # ============================================================
-# FORMAT BÁO CÁO
+# 3. FORMAT BÁO CÁO
 # ============================================================
 def format_stock_line(stock):
-    """Format cổ phiếu với đầy đủ số liệu."""
+    """Format cổ phiếu chi tiết cho báo cáo."""
     r = stock
     emoji = {"MUA MẠNH": "🟢", "MUA": "🟢", "MUA THĂM DÒ": "🟢",
              "CHỜ": "🟡", "KHÔNG VÀO": "⚪", "BÁN": "🔴",
@@ -251,13 +260,13 @@ def format_stock_line(stock):
         roe_str = f"{roe:.1f}" if roe is not None else "N/A"
         fund_line = f"   <b>Cơ bản:</b> P/E {pe_str} | P/B {pb_str} | ROE {roe_str}%"
     else:
-        fund_line = "   <b>Cơ bản:</b> <i>(không có dữ liệu, bỏ qua)</i>"
+        fund_line = "   <b>Cơ bản:</b> <i>(không có dữ liệu)</i>"
 
-    # Chi tiết chỉ báo
+    # Chỉ báo kỹ thuật
     sb = tech.get("score_breakdown", {})
     detail_lines = _format_indicator_details(sb)
 
-    # Hành động + R:R
+    # Risk Management
     entry = tech.get("entry_action", "N/A")
     reason = tech.get("entry_reason", "")
     rm = tech.get("risk_management", {})
@@ -272,17 +281,22 @@ def format_stock_line(stock):
         tp1_pct = round((tp1 - close) / close * 100, 1) if close else 0
         tp2_pct = round((tp2 - close) / close * 100, 1) if close else 0
         rm_text = (
-            f"\n   💰 <b>Quản trị rủi ro:</b>\n"
+            f"\n   💰 <b>Quản trị rủi ro</b> "
+            f"(SL {rm.get('sl_mult')}×ATR / TP {rm.get('tp_mult')}×ATR):\n"
             f"   • Entry: {close} | SL: {sl} (-{sl_pct}%)\n"
             f"   • TP1: {tp1} (+{tp1_pct}%) | TP2: {tp2} (+{tp2_pct}%)\n"
-            f"   • R:R = {rm.get('risk_reward_ratio')}"
+            f"   • R:R = {rm.get('risk_reward_ratio', 'N/A')}"
         )
 
     return (
-        f"{emoji} <b>{r.get('symbol', '?')}</b> {sector_tag}[{r.get('sector', '?')}] — "
-        f"<b>{r.get('adjusted_total', 0)}/100</b> — {r.get('signal', '?')} {conf_icon}\n"
-        f"   <b>Điểm:</b> KT {r.get('technical', 0):.0f} | CB {r.get('fundamental', 0):.0f} | "
-        f"Tin {r.get('sentiment', 0):.0f} | Ngành {r.get('sector_score', 0):.0f} "
+        f"{emoji} <b>{r.get('symbol', '?')}</b> {sector_tag}"
+        f"[{r.get('sector', '?')}] — "
+        f"<b>{r.get('adjusted_total', 0)}/100</b> — "
+        f"{r.get('signal', '?')} {conf_icon}\n"
+        f"   <b>Điểm:</b> KT {r.get('technical', 0):.0f} | "
+        f"CB {r.get('fundamental', 0):.0f} | "
+        f"Tin {r.get('sentiment', 0):.0f} | "
+        f"Ngành {r.get('sector_score', 0):.0f} "
         f"({r.get('sector_bonus', '0')})\n"
         f"{fund_line}\n"
         f"   <b>📊 Chỉ báo kỹ thuật:</b>\n"
@@ -294,7 +308,7 @@ def format_stock_line(stock):
 
 
 def _format_indicator_details(sb):
-    """Format chi tiết chỉ báo."""
+    """Format chi tiết 6 chỉ báo."""
     lines = []
 
     # EMA
@@ -306,8 +320,13 @@ def _format_indicator_details(sb):
             "FULL_BEAR": "❌ BEAR",
         }
         st = status_map.get(ema.get("status", ""), "")
-        lines.append(f"   • <b>EMA Ribbon:</b> {ema.get('score', 0)}/25 → "
-                     f"{ema.get('bull_pairs', 0)}/4 cặp đúng {st}")
+        pairs = ema.get("bull_pairs", 0)
+        intra = ema.get("intraday", {}).get("signal", "")
+        pos = ema.get("position", {}).get("signal", "")
+        lines.append(
+            f"   • <b>EMA Ribbon:</b> {ema.get('score', 0)}/25 → "
+            f"Swing {pairs}/4 {st} | Intra: {intra} | Position: {pos}"
+        )
     else:
         lines.append(f"   • <b>EMA Ribbon:</b> {ema.get('score', 0)}/25 → không đủ DL")
 
@@ -315,13 +334,21 @@ def _format_indicator_details(sb):
     macd = sb.get("macd", {})
     if macd and macd.get("status") != "no_data":
         cross = macd.get("fresh_cross", "")
-        cross_tag = " 🚀 VỪA CẮT LÊN" if cross == "bullish" else (
-                    " 🔻 VỪA CẮT XUỐNG" if cross == "bearish" else "")
+        cross_tag = ""
+        if cross == "bullish": cross_tag = " 🚀 CẮT LÊN"
+        elif cross == "bearish": cross_tag = " 🔻 CẮT XUỐNG"
         above = "✓ trên Signal" if macd.get("above_signal") else "✗ dưới Signal"
         hist = "↗ tăng" if macd.get("hist_rising") else "↘ giảm"
         hist_pos = "dương" if macd.get("hist_positive") else "âm"
-        lines.append(f"   • <b>MACD:</b> {macd.get('score', 0)}/20 → "
-                     f"{above} | Histogram {hist_pos}, {hist}{cross_tag}")
+        vals = macd.get("values", {})
+        vals_str = ""
+        if vals:
+            vals_str = (f" [MACD={vals.get('macd')} "
+                        f"Sig={vals.get('signal')}]")
+        lines.append(
+            f"   • <b>MACD:</b> {macd.get('score', 0)}/20 → "
+            f"{above} | Hist {hist_pos}, {hist}{vals_str}{cross_tag}"
+        )
     else:
         lines.append(f"   • <b>MACD:</b> {macd.get('score', 0)}/20 → không đủ DL")
 
@@ -329,16 +356,12 @@ def _format_indicator_details(sb):
     rsi = sb.get("rsi", {})
     if rsi and rsi.get("status") != "no_data":
         value = rsi.get("value", "N/A")
-        status_vn = {
-            "neutral_bullish": "vùng lý tưởng (40-60)",
-            "oversold_mild": "quá bán nhẹ (30-40)",
-            "oversold_strong": "quá bán mạnh (<30)",
-            "overbought_mild": "tăng nóng (60-70)",
-            "overbought_strong": "quá mua mạnh (>70)",
-        }.get(rsi.get("status", ""), "")
         rising = "↗" if rsi.get("rising") else "↘"
-        lines.append(f"   • <b>RSI(14):</b> {rsi.get('score', 0)}/15 → "
-                     f"{value} {rising} ({status_vn})")
+        note = rsi.get("note", "")
+        lines.append(
+            f"   • <b>RSI(14):</b> {rsi.get('score', 0)}/15 → "
+            f"{value} {rising} ({note})"
+        )
     else:
         lines.append(f"   • <b>RSI:</b> {rsi.get('score', 0)}/15 → không đủ DL")
 
@@ -351,8 +374,10 @@ def _format_indicator_details(sb):
             "normal": "bình thường", "low": "thấp",
             "very_low": "rất thấp ⚠️",
         }.get(vol.get("status", ""), "")
-        lines.append(f"   • <b>Volume:</b> {vol.get('score', 0)}/15 → "
-                     f"Vol/SMA20 = {ratio}x ({status_vn})")
+        lines.append(
+            f"   • <b>Volume:</b> {vol.get('score', 0)}/15 → "
+            f"Vol/SMA20 = {ratio}x ({status_vn})"
+        )
     else:
         lines.append(f"   • <b>Volume:</b> {vol.get('score', 0)}/15 → không đủ DL")
 
@@ -361,14 +386,15 @@ def _format_indicator_details(sb):
     if bb and bb.get("status") != "no_data":
         pos = round(bb.get("position", 0) * 100, 1)
         status_vn = {
-            "below_lower": "dưới dải dưới ⬇️", "near_lower": "gần dải dưới",
-            "lower_half": "nửa dưới", "middle": "giữa dải",
-            "upper_half": "nửa trên", "near_upper": "gần dải trên",
-            "above_upper": "vượt dải trên ⬆️",
+            "near_lower": "gần dải dưới", "lower_half": "nửa dưới",
+            "middle": "giữa dải", "upper_half": "nửa trên",
+            "near_upper": "gần dải trên",
         }.get(bb.get("status", ""), "")
         squeeze = " 🔔 NÉN" if bb.get("squeeze") else ""
-        lines.append(f"   • <b>Bollinger:</b> {bb.get('score', 0)}/15 → "
-                     f"Vị trí {pos}% ({status_vn}) | Width {bb.get('width', 0)}%{squeeze}")
+        lines.append(
+            f"   • <b>Bollinger:</b> {bb.get('score', 0)}/15 → "
+            f"Vị trí {pos}% ({status_vn}) | Width {bb.get('width', 0)}%{squeeze}"
+        )
     else:
         lines.append(f"   • <b>Bollinger:</b> {bb.get('score', 0)}/15 → không đủ DL")
 
@@ -380,9 +406,25 @@ def _format_indicator_details(sb):
             "optimal": "lý tưởng", "high": "cao",
             "low": "thấp", "extreme": "cực cao ⚠️",
         }.get(atr.get("status", ""), "")
-        lines.append(f"   • <b>ATR(14):</b> {atr.get('score', 0)}/10 → "
-                     f"{atr_pct}% giá ({status_vn})")
+        lines.append(
+            f"   • <b>ATR(14):</b> {atr.get('score', 0)}/10 → "
+            f"{atr_pct}% giá ({status_vn})"
+        )
     else:
         lines.append(f"   • <b>ATR:</b> {atr.get('score', 0)}/10 → không đủ DL")
 
     return "\n".join(lines) + "\n"
+
+
+# ============================================================
+# 4. TEST
+# ============================================================
+if __name__ == "__main__":
+    # Test nhanh 5 mã
+    test_list = ["VCB", "HPG", "FPT", "MWG", "VHM"]
+    print("🧪 TEST STOCK_SCORER")
+    print("=" * 60)
+    results = screen_stocks(test_list)
+    print(f"\n🏆 TOP {len(results)} CỔ PHIẾU:")
+    for i, r in enumerate(results, 1):
+        print(f"\n{i}. {format_stock_line(r)}")
