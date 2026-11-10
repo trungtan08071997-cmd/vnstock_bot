@@ -245,6 +245,7 @@ def format_stock_line(stock):
     sector_tag = "⭐" if r.get("is_priority_sector") else ""
 
     tech = r.get("details", {}).get("technical", {})
+    trend = tech.get("trend", "N/A")
     confidence = tech.get("confidence", "")
     conf_icon = {"HIGH": "🔥", "MEDIUM": "✅", "LOW": "⚠️"}.get(confidence, "")
 
@@ -264,12 +265,25 @@ def format_stock_line(stock):
 
     # Chỉ báo kỹ thuật
     sb = tech.get("score_breakdown", {})
+
+    rsi_info = sb.get("rsi", {})
+    macd_info = sb.get("macd", {})
+    vol_info = sb.get("volume", {})
+
+    rsi_value = rsi_info.get("value")
+    macd_vals = macd_info.get("values", {})
+
+    macd_val = macd_vals.get("macd")
+    signal_val = macd_vals.get("signal")
+
+    vol_ratio = vol_info.get("ratio")
     detail_lines = _format_indicator_details(sb)
 
     # Risk Management
     entry = tech.get("entry_action", "N/A")
     reason = tech.get("entry_reason", "")
     rm = tech.get("risk_management", {})
+    close = rm.get("close")
 
     rm_text = ""
     if rm.get("stop_loss"):
@@ -294,12 +308,17 @@ def format_stock_line(stock):
         f"<b>{r.get('adjusted_total', 0)}/100</b> — "
         f"{r.get('signal', '?')} {conf_icon}\n"
         f"   <b>Điểm:</b> KT {r.get('technical', 0):.0f} | "
+        f"   📈 Trend: {trend}\n"
         f"CB {r.get('fundamental', 0):.0f} | "
         f"Tin {r.get('sentiment', 0):.0f} | "
         f"Ngành {r.get('sector_score', 0):.0f} "
         f"({r.get('sector_bonus', '0')})\n"
         f"{fund_line}\n"
+        f"   💵 Giá hiện tại: {close}\n"
         f"   <b>📊 Chỉ báo kỹ thuật:</b>\n"
+        f" 📊 RSI: {rsi_value}\n"
+        f"   📈 MACD: {macd_val} / Signal: {signal_val}\n"
+        f"   📦 Volume/SMA20: {vol_ratio}x\n"
         f"{detail_lines}"
         f"{rm_text}\n"
         f"   🎯 <b>Hành động: {entry}</b>\n"
