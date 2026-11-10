@@ -195,62 +195,62 @@ class TechnicalAnalyzer:
         }
     def trend_filter(self, s):
 
-    close = s.get("close")
+        close = s.get("close")
 
-    ema8 = s.get("ema_m_8")
-    ema13 = s.get("ema_m_13")
-    ema21 = s.get("ema_m_21")
-    ema34 = s.get("ema_m_34")
-    ema55 = s.get("ema_m_55")
+        ema8 = s.get("ema_m_8")
+        ema13 = s.get("ema_m_13")
+        ema21 = s.get("ema_m_21")
+        ema34 = s.get("ema_m_34")
+        ema55 = s.get("ema_m_55")
 
-    ema50 = s.get("ema_l_50")
-    ema100 = s.get("ema_l_100")
-    ema200 = s.get("ema_l_200")
+        ema50 = s.get("ema_l_50")
+        ema100 = s.get("ema_l_100")
+        ema200 = s.get("ema_l_200")
 
-    if any(
-        v is None or pd.isna(v)
-        for v in [
-            close,
-            ema8,
-            ema13,
-            ema21,
-            ema34,
-            ema55,
-            ema50,
-            ema100,
-            ema200
-        ]
-    ):
-        return "UNKNOWN"
+        if any(
+            v is None or pd.isna(v)
+            for v in [
+                close,
+                ema8,
+                ema13,
+                ema21,
+                ema34,
+                ema55,
+                ema50,
+                ema100,
+                ema200
+            ]
+        ):
+            return "UNKNOWN"
 
-    # Strong trend
+        # Strong trend
 
-    if (
-        close > ema50 > ema100 > ema200
-        and
-        ema8 > ema13 > ema21 > ema34 > ema55
-    ):
-        return "STRONG_UPTREND"
+        if (
+            close > ema50 > ema100 > ema200
+            and
+            ema8 > ema13 > ema21 > ema34 > ema55
+        ):
+            return "STRONG_UPTREND"
 
-    # Normal trend
+        # Normal trend
 
-    if (
-        close > ema50
-        and
-        ema50 > ema200
-    ):
-        return "UPTREND"
+        if (
+            close > ema50
+            and
+            ema50 > ema200
+        ):
+            return "UPTREND"
 
-    # Down trend
+        # Down trend
 
-    if (
-        close < ema200
-        and
-        ema50 < ema200
-    ):
-        return "DOWNTREND"
-
-    return "SIDEWAY"
+        if (
+            close < ema200
+            and
+            ema50 < ema200
+        ):
+            return "DOWNTREND"
+    
+        return "SIDEWAY"
 
 
     # ============================================================
@@ -376,53 +376,53 @@ class TechnicalAnalyzer:
     # ============================================================
     # 6. CHẤM ĐIỂM RSI (max 15) — Threshold cố định từ config tối ưu
     # ============================================================
-def _score_rsi(self, s):
+    def _score_rsi(self, s):
 
-    rsi = s.get("rsi")
+        rsi = s.get("rsi")
+    
+        if rsi is None or pd.isna(rsi):
+            return 0, {"status": "no_data"}
 
-    if rsi is None or pd.isna(rsi):
-        return 0, {"status": "no_data"}
+        detail = {
+            "value": round(rsi, 1)
+        }
 
-    detail = {
-        "value": round(rsi, 1)
-    }
+        if 55 <= rsi <= 75:
 
-    if 55 <= rsi <= 75:
+            score = 15
+            detail["status"] = "momentum"
 
-        score = 15
-        detail["status"] = "momentum"
+        elif 50 <= rsi < 55:
 
-    elif 50 <= rsi < 55:
+            score = 12
+            detail["status"] = "warming"
 
-        score = 12
-        detail["status"] = "warming"
+        elif 75 < rsi <= 85:
 
-    elif 75 < rsi <= 85:
+            score = 10
+            detail["status"] = "strong"
 
-        score = 10
-        detail["status"] = "strong"
+        elif 40 <= rsi < 50:
 
-    elif 40 <= rsi < 50:
+            score = 7
+            detail["status"] = "weak"
 
-        score = 7
-        detail["status"] = "weak"
+        elif 30 <= rsi < 40:
 
-    elif 30 <= rsi < 40:
+            score = 5
+            detail["status"] = "oversold"
 
-        score = 5
-        detail["status"] = "oversold"
+        else:
 
-    else:
+            score = 2
+            detail["status"] = "bad"
 
-        score = 2
-        detail["status"] = "bad"
+        prev_rsi = s.get("prev_rsi")
 
-    prev_rsi = s.get("prev_rsi")
+        if prev_rsi is not None and not pd.isna(prev_rsi):
+            detail["rising"] = rsi > prev_rsi
 
-    if prev_rsi is not None and not pd.isna(prev_rsi):
-        detail["rising"] = rsi > prev_rsi
-
-    return score, detail
+        return score, detail
 
     # ============================================================
     # 7. CHẤM ĐIỂM VOLUME (max 15)
@@ -450,59 +450,59 @@ def _score_rsi(self, s):
     # ============================================================
     # 8. CHẤM ĐIỂM BOLLINGER (max 15)
     # ============================================================
-def _score_bollinger(self, s):
+    def _score_bollinger(self, s):
 
-    close = s.get("close")
+        close = s.get("close")
+    
+        upper = s.get("bb_upper")
+        lower = s.get("bb_lower")
+        width = s.get("bb_width")
 
-    upper = s.get("bb_upper")
-    lower = s.get("bb_lower")
-    width = s.get("bb_width")
+        if any(v is None or pd.isna(v) for v in [upper, lower]):
+            return 0, {"status": "no_data"}
 
-    if any(v is None or pd.isna(v) for v in [upper, lower]):
-        return 0, {"status": "no_data"}
+        rng = upper - lower
 
-    rng = upper - lower
+        if rng <= 0:
+            return 5, {"status": "invalid"}
 
-    if rng <= 0:
-        return 5, {"status": "invalid"}
+        pos = (close - lower) / rng
 
-    pos = (close - lower) / rng
+        detail = {
+            "position": round(pos, 2),
+            "width": round(width, 2) if width else None
+        }
+    
+        if pos >= 0.8:
 
-    detail = {
-        "position": round(pos, 2),
-        "width": round(width, 2) if width else None
-    }
+            score = 15
+            detail["status"] = "near_upper"
 
-    if pos >= 0.8:
+        elif pos >= 0.6:
+    
+            score = 12
+            detail["status"] = "upper_half"
 
-        score = 15
-        detail["status"] = "near_upper"
+        elif pos >= 0.4:
 
-    elif pos >= 0.6:
+            score = 10
+            detail["status"] = "middle"
 
-        score = 12
-        detail["status"] = "upper_half"
+        elif pos >= 0.2:
 
-    elif pos >= 0.4:
+            score = 6
+            detail["status"] = "lower_half"
 
-        score = 10
-        detail["status"] = "middle"
+        else:
 
-    elif pos >= 0.2:
+            score = 3
+            detail["status"] = "near_lower"
 
-        score = 6
-        detail["status"] = "lower_half"
+        if width and width < 5:
+            detail["squeeze"] = True
+            score = min(15, score + 2)
 
-    else:
-
-        score = 3
-        detail["status"] = "near_lower"
-
-    if width and width < 5:
-        detail["squeeze"] = True
-        score = min(15, score + 2)
-
-    return score, detail
+        return score, detail
 
     # ============================================================
     # 9. CHẤM ĐIỂM ATR (max 10)
@@ -530,17 +530,10 @@ def _score_bollinger(self, s):
     # ============================================================
     def technical_score(self):
         s = self.get_current_signals()
-        trend = self.trend_filter(s)
-        if trend == "DOWNTREND":
-
-    return (
-        "TRÁNH",
-        "AVOID",
-        "Down trend"
-    )
-        trend = self.trend_filter(s)
         if not s:
             return 0, {"error": "Không đủ dữ liệu"}
+
+        trend = self.trend_filter(s)
 
         W = self.weights
         total_w = sum(W.values())
@@ -650,106 +643,110 @@ def _score_bollinger(self, s):
     # ============================================================
     # 11. ENTRY DECISION
     # ============================================================
-def _entry_decision(
-    self,
-    score,
-    confidence,
-    bull,
-    bear,
-    s
-):
+    def _entry_decision(
+        self,
+        score,
+        confidence,
+        bull,
+        bear,
+        s
+    ):
 
-    trend = self.trend_filter(s)
-
-    # ==================================================
+        trend = self.trend_filter(s)
+    
+    # ==========================================
     # DOWN TREND
-    # ==================================================
+    # ==========================================
 
-    if trend == "DOWNTREND":
+        if trend == "DOWNTREND":
 
-        return (
-            "TRÁNH",
-            "AVOID",
-            "Below EMA200"
-        )
+            return (
+                "TRÁNH",
+                "AVOID",
+                "Below EMA200"
+            )
 
-    # ==================================================
+    # ==========================================
     # SIDEWAY
-    # ==================================================
+    # ==========================================
 
-    if trend == "SIDEWAY":
+        if trend == "SIDEWAY":
+
+            return (
+                "CHỜ",
+                "WAIT",
+                "Sideway market"
+            )
+    
+    # ==========================================
+    # STRONG UPTREND
+    # ==========================================
+
+        if (
+            trend == "STRONG_UPTREND"
+            and score >= 80
+        ):
+
+            return (
+                "MUA MẠNH",
+                "ENTER_NOW",
+                f"Strong trend confirmed ({score})"
+            )
+
+        if (
+            trend == "STRONG_UPTREND"
+            and score >= 65
+        ):
+
+            return (
+                "MUA",
+                "ENTER_PARTIAL",
+                f"Good setup ({score})"
+            )
+
+        if (
+            trend == "STRONG_UPTREND"
+            and score >= 50
+        ):
+
+            return (
+                "THEO DÕI",
+                "WATCHLIST",
+                f"Need stronger setup ({score})"
+            )
+
+    # ==========================================
+    # NORMAL UPTREND
+    # ==========================================
+
+        if (
+            trend == "UPTREND"
+            and score >= 70
+        ):
+
+            return (
+                "MUA",
+                "ENTER_PARTIAL",
+                f"Uptrend confirmed ({score})"
+            )
+
+        if (
+            trend == "UPTREND"
+            and score >= 50
+        ):
+
+            return (
+                "THEO DÕI",
+                "WATCHLIST",
+                f"Need stronger setup ({score})"
+            )
+
+    # ==========================================
+    # DEFAULT
+    # ==========================================
 
         return (
             "CHỜ",
             "WAIT",
-            "Sideway market"
+            f"Score {score}"
         )
-
-    # ==================================================
-    # STRONG UPTREND
-    # ==================================================
-
-    if (
-        trend == "STRONG_UPTREND"
-        and score >= 80
-    ):
-
-        return (
-            "MUA MẠNH",
-            "ENTER_NOW",
-            f"Strong trend confirmed ({score})"
-        )
-
-    if (
-        trend == "STRONG_UPTREND"
-        and score >= 65
-    ):
-
-        return (
-            "MUA",
-            "ENTER_PARTIAL",
-            f"Good setup ({score})"
-        )
-
-    if (
-        trend == "STRONG_UPTREND"
-        and score >= 50
-    ):
-
-        return (
-            "THEO DÕI",
-            "WATCHLIST",
-            f"Wait pullback ({score})"
-        )
-
-    # ==================================================
-    # NORMAL UPTREND
-    # ==================================================
-
-    if (
-        trend == "UPTREND"
-        and score >= 70
-    ):
-
-        return (
-            "MUA",
-            "ENTER_PARTIAL",
-            f"Uptrend confirmed ({score})"
-        )
-
-    if (
-        trend == "UPTREND"
-        and score >= 50
-    ):
-
-        return (
-            "THEO DÕI",
-            "WATCHLIST",
-            f"Need stronger setup ({score})"
-        )
-
-    return (
-        "CHỜ",
-        "WAIT",
-        f"Score {score}"
-    )
