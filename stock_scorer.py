@@ -310,7 +310,7 @@ def format_stock_line(stock):
         f"   <b>Điểm:</b> KT {r.get('technical', 0):.0f} | "
         f"   📈 Trend: {trend}\n"
         f"CB {r.get('fundamental', 0):.0f} | "
-        f"Tin {r.get('sentiment', 0):.0f} | "
+        Tin tức {r.get('sentiment', 0):.0f}/100 | "
         f"Ngành {r.get('sector_score', 0):.0f} "
         f"({r.get('sector_bonus', '0')})\n"
         f"{fund_line}\n"
