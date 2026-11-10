@@ -19,17 +19,16 @@ from sector_analyzer import (get_sector, sector_score, get_top_sectors,
 def composite_score(symbol):
     """Chấm điểm tổng hợp cho 1 cổ phiếu."""
     result = {
-        "symbol": symbol,
-        "sector": get_sector(symbol),
-        "technical": 0,
-        "fundamental": 0,
-        "sentiment": 0,
-        "sector_score": 0,
-        "total": 0,
-        "adjusted_total": 0,
-        "signal": "N/A",
-        "has_fundamental": False,
-        "details": {},
+        "Ticker": ticker,
+        "Score": score,
+        "Action": details["entry_action"],
+        "Trend": details["trend"],
+        "RSI": details["rsi"],
+        "ADX": details["adx"],
+        "VolRatio": details["vol_ratio"],
+        "RS20": details["rs20"],
+        "Breakout": details["breakout20"],
+        "Passed": ",".join(details["passed"])
     }
 
     # ===== 1. DỮ LIỆU GIÁ =====
