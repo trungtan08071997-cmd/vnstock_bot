@@ -122,6 +122,36 @@ class TechnicalAnalyzer:
         d["volume_sma_20"] = d["volume"].rolling(20).mean()
         d["volume_ratio"] = d["volume"] / d["volume_sma_20"]
 
+        # ==================================================
+        # EMA Trend Filter
+        # ==================================================
+
+        d["ema20"] = d["close"].ewm(span=20, adjust=False).mean()
+        d["ema50"] = d["close"].ewm(span=50, adjust=False).mean()
+        d["ema200"] = d["close"].ewm(span=200, adjust=False).mean()
+
+        # ==================================================
+        # Breakout
+        # ==================================================
+
+        d["high20"] = d["high"].rolling(20).max()
+
+        d["distance_high20"] = (
+            (d["high20"] - d["close"])
+            / d["high20"]
+        ) * 100
+
+        # ==================================================
+        # Relative Strength 20
+        # ==================================================
+
+        d["rs20"] = (
+            (
+                d["close"]
+                / d["close"].shift(20)
+            ) - 1
+        ) * 100
+
         # ===== ADX (chỉ dùng nếu bật dynamic) =====
         plus_dm = d["high"].diff()
         minus_dm = -d["low"].diff()
@@ -191,6 +221,12 @@ class TechnicalAnalyzer:
             "volume": latest.get("volume"),
             "volume_sma_20": latest.get("volume_sma_20"),
             "volume_ratio": latest.get("volume_ratio"),
+            "ema20": latest.get("ema20"),
+            "ema50": latest.get("ema50"),
+            "ema200": latest.get("ema200"),
+            "high20": latest.get("high20"),
+            "distance_high20": latest.get("distance_high20"),
+            "rs20": latest.get("rs20"),
             "adx": latest.get("adx_14"),
         }
     def trend_filter(self, s):
@@ -251,6 +287,63 @@ class TechnicalAnalyzer:
             return "DOWNTREND"
     
         return "SIDEWAY"
+
+    def _score_trend_following(self, s):
+
+        score = 0
+        passed = []
+
+        close = s["close"]
+        ema20 = s["ema20"]
+        ema50 = s["ema50"]
+        ema200 = s["ema200"]
+
+        # 1
+        if close > ema20:
+            score += 15
+            passed.append("Close>EMA20")
+
+        # 2
+        if ema20 > ema50:
+            score += 15
+            passed.append("EMA20>EMA50")
+
+        # 3
+        if ema50 > ema200:
+            score += 10
+            passed.append("EMA50>EMA200")
+
+        # 4
+        if s["volume_ratio"] > 1.5:
+            score += 20
+            passed.append("VOL>1.5")
+
+        # 5
+        if s["adx"] > 20:
+            score += 10
+            passed.append("ADX>20")
+
+        # 6
+        if s["macd"] > s["macd_signal"]:
+            score += 10
+            passed.append("MACD")
+
+        # 7
+        if s["rsi"] > 55:
+            score += 5
+            passed.append("RSI")
+
+        # 8
+        if s["distance_high20"] < 3:
+            score += 15
+            passed.append("BREAKOUT_READY")
+
+        # 9
+        if s["rs20"] > 5:
+            score += 10
+            passed.append("RS20")
+
+        return score, passed
 
 
     # ============================================================
@@ -538,30 +631,7 @@ class TechnicalAnalyzer:
         W = self.weights
         total_w = sum(W.values())
 
-        ema_raw, ema_detail = self._score_ema_ribbon(s)
-        macd_raw, macd_detail = self._score_macd(s)
-        rsi_raw, rsi_detail = self._score_rsi(s)
-        vol_raw, vol_detail = self._score_volume(s)
-        bb_raw, bb_detail = self._score_bollinger(s)
-        atr_raw, atr_detail = self._score_atr(s)
-
-        # Scale từng chỉ báo về [0,100]
-        ema_pct = ema_raw / 25 * 100
-        macd_pct = macd_raw / 20 * 100
-        rsi_pct = rsi_raw / 15 * 100
-        vol_pct = vol_raw / 15 * 100
-        bb_pct = bb_raw / 15 * 100
-        atr_pct_scaled = atr_raw / 10 * 100
-
-        # Weighted sum
-        total = (
-            ema_pct * W["ema_ribbon"]
-            + macd_pct * W["macd"]
-            + rsi_pct * W["rsi"]
-            + vol_pct * W["volume"]
-            + bb_pct * W["bollinger"]
-            + atr_pct_scaled * W["atr"]
-        ) / total_w
+        score, passed = self._score_trend_following(s)
 
         total = round(total, 1)
 
@@ -587,7 +657,7 @@ class TechnicalAnalyzer:
 
         # Entry decision
         signal, action, reason = self._entry_decision(
-            total, confidence, bull, bear, s
+            total, confidence, s
         )
 
         # Risk Management — dùng config tối ưu
@@ -647,8 +717,6 @@ class TechnicalAnalyzer:
         self,
         score,
         confidence,
-        bull,
-        bear,
         s
     ):
 
