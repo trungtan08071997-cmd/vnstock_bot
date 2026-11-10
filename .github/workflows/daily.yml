@@ -2,9 +2,13 @@ name: Daily Stock Report
 
 on:
   schedule:
-    # 08:00 giờ VN = 01:00 UTC, thứ 2-6
+    # 08:00 VN = 01:00 UTC
     - cron: '0 1 * * 1-5'
+
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   report:
@@ -12,29 +16,64 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
+      - name: 🚀 Start
         run: |
-          pip install --upgrade pip
-          pip install --only-binary=:all: requests beautifulsoup4 lxml pandas numpy schedule
-          pip install --only-binary=:all: "lotusmarket[fetchers]"
+          echo "Starting Daily Stock Report"
+          echo "Time: $(date -u)"
 
-      - name: Run bot
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+
+          pip install \
+            requests \
+            beautifulsoup4 \
+            lxml \
+            pandas \
+            numpy \
+            schedule
+
+          pip install "lotusmarket[fetchers]"
+
+      - name: 📁 Create output directory
+        run: mkdir -p output
+
+      - name: 📊 Run Stock Scanner
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: python main.py --mode vn30
+        run: |
+          python main.py --mode vn30
 
-      - name: Upload report artifact
+      - name: ✅ Report generated
+        if: success()
+        run: |
+          echo "Daily report completed successfully"
+
+      - name: ❌ Report failed
+        if: failure()
+        run: |
+          echo "Daily report failed"
+
+      - name: 📤 Upload report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: report-${{ github.run_number }}
-          path: output/report.json
+          path: |
+            output/report.json
+            output/daily_scan_report.json
+            output/scanner_history.json
           retention-days: 7
+
+      - name: 🎉 Finish
+        if: always()
+        run: |
+          echo "Workflow finished"
