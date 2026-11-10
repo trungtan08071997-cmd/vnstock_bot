@@ -144,6 +144,8 @@ def check_technical(symbol, ratios):
         
         ta = TechnicalAnalyzer(df)
         score, details = ta.technical_score()
+        if details.get("trend") == "DOWNTREND":
+            return None
         
         return {
             "score": score,
