@@ -59,15 +59,19 @@ COMMISSION_RATE = 0.15 / 100
 SLIPPAGE_RATE = 0.10 / 100
 STAMP_DUTY_RATE = 0.10 / 100
 
+# === File lưu ===
+PE_INDUSTRY_FILE = "pe_industry_data.json"
+MODEL_FILE = "ml_model.pkl"
+
 # === Cấu hình chạy ===
 BACKTEST_DAYS = 180
 TOP_STOCKS_LIMIT = 8
 TRAIN_MODEL = not os.path.exists(MODEL_FILE)
 OPTIMIZE_PARAMS = False
 
-# === File lưu ===
-PE_INDUSTRY_FILE = "pe_industry_data.json"
-MODEL_FILE = "ml_model.pkl"
+
+
+
 
 # ============================================================
 # 📋 DANH SÁCH NGÀNH & P/E TRUNG BÌNH
