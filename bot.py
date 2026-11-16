@@ -72,6 +72,7 @@ ATR_MULTIPLIER_TP = 2.5
 # === Khác ===
 TOP_STOCKS_LIMIT = 8
 LOOKBACK_DAYS = 260
+BACKTEST_DAYS = 180
 
 # ============================================================
 # 🏭 PHÂN LOẠI NGÀNH
