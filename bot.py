@@ -210,13 +210,15 @@ class TechnicalAnalyzer:
 # 📥 LẤY DỮ LIỆU GIÁ THỰC — API TCBS CÔNG KHAI
 # ============================================================
 def get_stock_data(ticker, days=LOOKBACK_DAYS):
-    """Lấy dữ liệu giá THẬT từ API TCBS — không cần vnstock"""
+    """Lấy dữ liệu giá THẬT từ API VNDIRECT — không bị chặn"""
     try:
-        end_ts = int(time.time())
-        start_ts = int((datetime.now() - timedelta(days=days)).timestamp())
-        url = (f"https://apipubaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term"
-               f"?ticker={ticker}&type=stock&resolution=D&from={start_ts}&to={end_ts}")
-        resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        url = (f"https://api-finfo.vndirect.com.vn/v4/stock_prices?sort=date"
+               f"&q=code:{ticker}~date:gte:{start_date}~date:lte:{end_date}&size=500")
+        resp = requests.get(url, timeout=15, headers={
+            "User-Agent": "Mozilla/5.0", "Accept": "application/json"
+        })
         if resp.status_code != 200:
             return None
         data = resp.json().get("data", [])
@@ -224,8 +226,8 @@ def get_stock_data(ticker, days=LOOKBACK_DAYS):
             return None
         df = pd.DataFrame(data)
         df = df.rename(columns={
-            "tradingDate": "date", "open": "open", "high": "high",
-            "low": "low", "close": "close", "volume": "volume"
+            "date": "date", "open": "open", "high": "high",
+            "low": "low", "close": "close", "nmVolume": "volume"
         })
         df["date"] = pd.to_datetime(df["date"])
         df = df.sort_values("date").reset_index(drop=True)
@@ -235,6 +237,7 @@ def get_stock_data(ticker, days=LOOKBACK_DAYS):
         return df
     except Exception:
         return None
+
 
 
 def get_filtered_hose_stocks():
