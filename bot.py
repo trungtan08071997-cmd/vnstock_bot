@@ -1225,7 +1225,7 @@ if __name__ == "__main__":
     print("=" * 90 + "\n")
     
     # Chọn chế độ chạy
-    TRAIN_MODEL = False       # Đặt =True để huấn luyện lại mô hình ML
+    TRAIN_MODEL = True      # Đặt =True để huấn luyện lại mô hình ML
     OPTIMIZE_PARAMS = False   # Đặt =True để chạy tối ưu tham số
     
     bot = SmartStockBotV2(run_ml_train=TRAIN_MODEL, run_optimize=OPTIMIZE_PARAMS)
