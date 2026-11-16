@@ -297,4 +297,52 @@ def create_sample_data(ticker, days=90):
 # ============================================================
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🚀 KHỞ
+    print("🚀 KHỞI ĐỘNG BOT THEO DÕI THỊ TRƯỜNG")
+    print("="*60)
+    print(f"📋 Danh sách theo dõi: {', '.join(WATCHLIST)}")
+    print(f"⚙️  RSI: {RSI_PERIOD} | MACD: {MACD_FAST},{MACD_SLOW},{MACD_SIGNAL}")
+    print(f"🛑 Rủi ro: {RISK_PERCENT}% | Tỷ lệ L/R: 1:{REWARD_RATIO}")
+    print("="*60 + "\n")
+
+    # Tạo dữ liệu mẫu
+    def create_sample_data(ticker, days=90):
+        dates = pd.date_range(end=datetime.now(), periods=days, freq='D')
+        np.random.seed(hash(ticker) % 10000)
+        base = np.random.uniform(30, 150)
+        prices = base + np.cumsum(np.random.randn(len(dates)) * 0.8)
+        return pd.DataFrame({
+            'open': prices + np.random.randn(len(dates)) * 0.2,
+            'high': prices + abs(np.random.randn(len(dates))) * 0.6,
+            'low': prices - abs(np.random.randn(len(dates))) * 0.6,
+            'close': prices,
+            'volume': np.random.randint(500000, 3000000, size=len(dates))
+        }, index=dates)
+
+    # Khởi tạo dữ liệu mẫu cho toàn bộ danh sách
+    market_data = {ticker: create_sample_data(ticker) for ticker in WATCHLIST}
+
+    # === Khởi tạo Bot ===
+    bot = TradingBot()
+
+    # Gửi tin nhắn xác nhận bot online
+    bot.notifier.send_embed(
+        "✅ BOT ĐÃ ONLINE",
+        f"Bot đang chạy trên Render\n📋 Theo dõi: {', '.join(WATCHLIST)}",
+        0x2ecc71
+    )
+
+    # === Bước 1: Quét tín hiệu toàn bộ danh sách ===
+    bot.scan_watchlist(market_data)
+
+    # === Bước 2: Theo dõi VN-Index ===
+    print("\n" + "-"*60)
+    print("📉 THEO DÕI BIẾN ĐỘNG THỊ TRƯỜNG")
+    print("-"*60)
+    print(bot.monitor_index("VN-Index", 1245.50))
+
+    # === Vòng lặp giữ bot luôn chạy ===
+    print("\n⏳ Bot đang theo dõi... Nhấn Ctrl+C để dừng")
+    import time
+    while True:
+        time.sleep(60)  # Nghỉ 60 giây
+
