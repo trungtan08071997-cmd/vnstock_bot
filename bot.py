@@ -16,6 +16,8 @@ import time
 import json
 from dotenv import load_dotenv
 from warnings import filterwarnings
+from flask import Flask
+import threading
 filterwarnings('ignore')
 
 # === Machine Learning — Chỉ dùng Random Forest, không cần XGBoost ===
@@ -60,7 +62,7 @@ STAMP_DUTY_RATE = 0.10 / 100
 # === Cấu hình chạy ===
 BACKTEST_DAYS = 180
 TOP_STOCKS_LIMIT = 8
-TRAIN_MODEL = True      # ✅ Tự huấn luyện lần đầu
+TRAIN_MODEL = not os.path.exists(MODEL_FILE)
 OPTIMIZE_PARAMS = False
 
 # === File lưu ===
@@ -114,6 +116,36 @@ SECTOR_PARAMS = {
     "Tiện ích": {"rsi_low": 48, "rsi_high": 68, "vol_min": 1.1, "atr_mult": 1.1, "adx_min": 20},
     "Khác": {"rsi_low": 55, "rsi_high": 75, "vol_min": 1.5, "atr_mult": 1.5, "adx_min": 25}
 }
+
+# ============================================================
+# 🌐 WEB SERVER CHO RENDER
+# ============================================================
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return {
+        "status": "running",
+        "service": "VN Stock Bot",
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+@app.route("/health")
+def health():
+    return {
+        "status": "healthy"
+    }
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=False,
+        use_reloader=False
+    )
 
 # ============================================================
 # 📡 LẤY DỮ LIỆU TỪ API VNDIRECT
@@ -557,13 +589,13 @@ class TechnicalAnalyzer:
         # =========================================================
         cond_diem = score >= 65
         cond_dakhung = mtf['confidence'] >= 40
-        cond_ml = ml_prob >= 55
+        cond_ml = ml_prob >= 30
         cond_thitruong = market_ok
         cond_pe = pe_ok
         
         tat_ca_thoa = cond_diem and cond_dakhung and cond_ml and cond_thitruong and cond_pe
         
-        tt_diem = f"Điểm: {score}/65 {'✅' if cond_diem else '❌'}"
+        tt_diem = f"Điểm: {score}/100 {'✅' if cond_diem else '❌'}"
         tt_dakhung = f"Đa khung: {mtf['confidence']}%/40% {'✅' if cond_dakhung else '❌'}"
         tt_ml = f"ML: {ml_prob}%/55% {'✅' if cond_ml else '❌'}"
         tt_tt = f"Thị trường: {'✅' if cond_thitruong else '❌'}"
@@ -666,6 +698,18 @@ class SmartStockBot:
 # 🏃 KHỞI ĐỘNG
 # ============================================================
 if __name__ == "__main__":
+
+    # =====================================================
+    # START WEB SERVER FOR RENDER
+    # =====================================================
+
+    threading.Thread(
+        target=run_web_server,
+        daemon=True
+    ).start()
+
+    print("✅ Web Server Started")
+
     print("\n" + "=" * 80)
     print("🚀 BOT CHỨNG KHOÁN VNDIRECT — PHIÊN BẢN HOÀN CHỈNH")
     print("=" * 80)
