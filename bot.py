@@ -11,7 +11,9 @@ import requests
 import os
 import time
 from dotenv import load_dotenv
-from vnstock import stock_historical_data, listing_companies
+from vnstock.stock import stock_historical_data
+from vnstock.listing import listing_companies
+
 import warnings
 warnings.filterwarnings('ignore')
 
