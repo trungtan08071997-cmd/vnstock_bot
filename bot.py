@@ -1,9 +1,8 @@
 # ============================================================
-# 🇻🇳 BOT LỌC TỰ ĐỘNG & PHÂN TÍCH — TOP MÃ TỐT NHẤT HOSE
-# Tiêu chí: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout 20D
-# TP/SL tự động | Thông báo Discord đầy đủ chỉ số
-# Nguồn giá: API VNDIRECT
-# ⚠️ CHỈ DÙNG CHO HỌC TẬP — KHÔNG PHẢI LỜI KHUYÊN ĐẦU TƯ
+# 🇻🇳 BOT LỌC TỰ ĐỘNG HOSE — PHIÊN BẢN CÓ VNINDEX
+# Timeframe: D1 (Ngày) | Quét: 8:00 sáng T2-T6
+# Tiêu chí: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout
+# Thêm: So sánh VNINDEX | Relative Strength | Lọc theo xu hướng thị trường
 # ============================================================
 
 import pandas as pd
@@ -22,10 +21,10 @@ warnings.filterwarnings('ignore')
 load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
-# === Tham số chỉ báo ===
-EMA_SHORT = 20
-EMA_MID = 50
-EMA_LONG = 200
+# === Tham số chỉ báo — Timeframe: D1 (Ngày) ===
+EMA_SHORT = 20    # 20 ngày
+EMA_MID = 50      # 50 ngày
+EMA_LONG = 200    # 200 ngày
 RSI_PERIOD = 9
 MACD_FAST = 12
 MACD_SLOW = 26
@@ -33,6 +32,7 @@ MACD_SIGNAL = 9
 ADX_PERIOD = 14
 VOL_LOOKBACK = 20
 BREAKOUT_PERIOD = 20
+RS_PERIOD = 20    # So sánh mạnh/yếu hơn VNINDEX (20 phiên)
 
 # === Ngưỡng lọc ===
 MIN_VOLUME_RATIO = 1.5
@@ -40,6 +40,10 @@ MIN_ADX = 25
 RSI_LOW = 55
 RSI_HIGH = 75
 BREAKOUT_MAX_DISTANCE = 0.03  # < 3% dưới đỉnh 20 phiên
+
+# === VNINDEX lọc thị trường ===
+MARKET_RSI_UP = 45   # Chỉ ưu tiên khi VNINDEX RSI trên mức này
+MARKET_DOWN_PCT_STOP = -0.02  # Bỏ qua nếu VNINDEX giảm > 2% trong 3 phiên
 
 # === Số mã chọn ra ===
 TOP_STOCKS_LIMIT = 8
@@ -49,7 +53,7 @@ RISK_PERCENT = 2.5
 REWARD_RATIO = 1.5
 
 # === Số ngày dữ liệu lịch sử ===
-LOOKBACK_DAYS = 250  # Đủ để tính EMA200
+LOOKBACK_DAYS = 260  # Đủ để tính EMA200 + VNINDEX so sánh
 
 # ============================================================
 # 📡 LỚP GỬI THÔNG BÁO DISCORD
@@ -69,7 +73,7 @@ class DiscordNotifier:
             "title": title,
             "description": description + f"\n⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "color": color,
-            "footer": {"text": "📢 Hệ thống lọc tự động — Thị trường Việt Nam"}
+            "footer": {"text": "📢 Hệ thống lọc tự động — Thị trường Việt Nam | Timeframe: D1 (Ngày)"}
         }
         try:
             resp = requests.post(self.webhook_url, json={"embeds": [embed]}, timeout=10)
@@ -78,10 +82,23 @@ class DiscordNotifier:
             print(f"⚠️ Lỗi Discord: {e}")
             return False
 
+    def market_summary(self, vnindex_info):
+        """Báo cáo tổng quan thị trường VNINDEX"""
+        status_emoji = "🟢" if vnindex_info['trend'] == "TĂNG" else ("🟡" if vnindex_info['trend'] == "NGANG" else "🔴")
+        desc = f"""
+{status_emoji} **VNINDEX hiện tại:** {vnindex_info['close']:.2f}
+📊 **Xu hướng:** {vnindex_info['trend']} (EMA20: {'✅' if vnindex_info['above_ema20'] else '❌'})
+📈 **RSI thị trường:** {vnindex_info['rsi']:.1f}
+📉 **Thay đổi 3 phiên:** {vnindex_info['pct_3d']:+.2f}%
+💡 **Nhận định:** {vnindex_info['note']}
+        """
+        return self.send_embed("📊 TỔNG QUAN THỊ TRƯỜNG — VNINDEX", desc, 0x3498db)
+
     def new_signal(self, ticker, direction, entry, tp, sl, score, ind):
         emoji = "🟢" if direction == "MUA ✅" else "⏳"
         color = 0x2ecc71 if direction == "MUA ✅" else 0x9b59b6
         title = f"{emoji} TÍN HIỆU — {direction.split()[0]} {ticker}"
+        vs_market = "✅ Mạnh hơn VNINDEX" if ind['rs_vs_market'] > 0 else "⚠️ Yếu hơn VNINDEX"
         desc = f"""
 📌 **Mã:** {ticker}
 📊 **Điểm tín hiệu:** {score}/100
@@ -92,6 +109,8 @@ class DiscordNotifier:
 📈 **RSI:** {ind['rsi']} | **ADX:** {ind['adx']} ({ind['trend_strength']})
 📉 **MACD:** {ind['macd']}/{ind['macd_signal']} | **Vol Ratio:** {ind['vol_ratio']}
 📊 **EMA Ribbon:** {ind['ema_status']} | **Cách đỉnh 20D:** {ind['breakout_pct']}%
+🆚 **So sánh VNINDEX:** {vs_market} (RS{RS_PERIOD}: {ind['rs_vs_market']:+.2%})
+⏱️ **Timeframe:** D1 (Ngày)
         """
         return self.send_embed(title, desc, color)
 
@@ -100,30 +119,33 @@ class DiscordNotifier:
 ✅ Đã lọc xong sàn HOSE
 📋 Số mã phân tích: {count}
 📈 Danh sách theo dõi mới: {', '.join(stocks_list)}
+⏱️ Timeframe phân tích: D1 (Ngày)
         """
         return self.send_embed("📋 CẬP NHẬT DANH SÁCH THEO DÕI", desc, 0x9b59b6)
 
-    def top_stocks(self, top_list):
-        lines = "\n".join([
+    def top_stocks(self, top_list, vnindex_info):
+        lines = f"📊 VNINDEX: {vnindex_info['close']:.2f} | Xu hướng: {vnindex_info['trend']}\n"
+        lines += "─" * 50 + "\n"
+        lines += "\n".join([
             (f"**#{i+1} {s['ticker']}** — {s['score']}/100 | {s['signal']}\n"
              f"   💰 Giá: {s['entry']} | 🎯 TP: {s['TP']} | 🛑 SL: {s['SL']}\n"
-             f"   📊 RSI: {s['rsi']} | ADX: {s['adx']} | Vol Ratio: {s['vol_ratio']}\n"
-             f"   📈 EMA Ribbon: {s['ema_status']} | Cách đỉnh 20D: {s['breakout_pct']}%")
+             f"   📊 RSI: {s['rsi']} | ADX: {s['adx']} | Vol: {s['vol_ratio']}x\n"
+             f"   🆚 RS{RS_PERIOD}: {s['rs_vs_market']:+.2%} | Đỉnh 20D: {s['breakout_pct']}%")
             for i, s in enumerate(top_list)
         ])
-        return self.send_embed(f"🏆 TOP {len(top_list)} MÃ TỐT NHẤT — KÈM TP/SL & CHỈ SỐ", lines, 0xf39c12)
+        return self.send_embed(f"🏆 TOP {len(top_list)} MÃ TỐT NHẤT — Timeframe: D1", lines, 0xf39c12)
 
 # ============================================================
-# 📊 LỚP PHÂN TÍCH KỸ THUẬT & TÍNH ĐIỂM
+# 📊 LỚP PHÂN TÍCH KỸ THUẬT
 # ============================================================
 class TechnicalAnalyzer:
     def __init__(self):
         pass
 
-    def calculate_all_indicators(self, df):
+    def calculate_all_indicators(self, df, vnindex_df=None):
         df = df.copy()
 
-        # === EMA Ribbon: EMA20, EMA50, EMA200 ===
+        # === EMA Ribbon ===
         df['ema20'] = df['close'].ewm(span=EMA_SHORT, adjust=False).mean()
         df['ema50'] = df['close'].ewm(span=EMA_MID, adjust=False).mean()
         df['ema200'] = df['close'].ewm(span=EMA_LONG, adjust=False).mean()
@@ -160,25 +182,33 @@ class TechnicalAnalyzer:
         df['plus_di'] = plus_di
         df['minus_di'] = minus_di
 
-        # === Khối lượng trung bình & Tỷ lệ khối lượng ===
+        # === Khối lượng ===
         df['avg_vol_20'] = df['volume'].rolling(window=VOL_LOOKBACK).mean()
         df['vol_ratio'] = df['volume'] / df['avg_vol_20']
 
-        # === Đỉnh cao nhất 20 phiên gần nhất ===
+        # === Đỉnh 20 phiên ===
         df['high_20d'] = df['high'].rolling(window=BREAKOUT_PERIOD).max()
         df['pct_from_high_20d'] = (df['high_20d'] - df['close']) / df['high_20d']
 
+        # === So sánh với VNINDEX — Relative Strength ===
+        if vnindex_df is not None:
+            df = df.merge(vnindex_df[['date','vnindex_close']], on='date', how='left')
+            df['ret_20'] = df['close'].pct_change(RS_PERIOD)
+            df['vnindex_ret_20'] = df['vnindex_close'].pct_change(RS_PERIOD)
+            df['rs_vs_market'] = df['ret_20'] - df['vnindex_ret_20']  # >0 = mạnh hơn thị trường
+
         return df
 
-    def calculate_score(self, df):
+    def calculate_score(self, df, market_ok=True):
         """
-        Hệ thống chấm điểm — Tổng 100đ
-        ✅ EMA Ribbon:       30đ
-        ✅ Volume Ratio:     15đ
-        ✅ ADX + DI+:       15đ
-        ✅ MACD > Signal:   15đ
-        ✅ RSI 55~75:       10đ
-        ✅ Breakout 20D:    15đ
+        Thang điểm mới — Tổng 100đ
+        EMA Ribbon:       30đ
+        Volume Ratio:     15đ
+        ADX + DI+:       15đ
+        MACD > Signal:   15đ
+        RSI 55~75:       10đ
+        Breakout 20D:    10đ
+        Mạnh hơn VNINDEX: +5đ
         """
         latest = df.iloc[-1]
         score = 0
@@ -210,7 +240,7 @@ class TechnicalAnalyzer:
             score += 10
         checks['vol_ratio'] = round(float(vol_ratio), 2)
 
-        # 3️⃣ ADX > 25 & +DI > -DI — 15 điểm
+        # 3️⃣ ADX + DI+ — 15 điểm
         adx_ok = latest['adx'] > MIN_ADX
         di_ok = latest['plus_di'] > latest['minus_di']
         if adx_ok and di_ok:
@@ -220,13 +250,12 @@ class TechnicalAnalyzer:
         checks['adx_ok'] = adx_ok
         checks['di_ok'] = di_ok
 
-        # 4️⃣ MACD > Signal — 15 điểm
-        macd_ok = latest['macd'] > latest['macd_signal']
-        if macd_ok:
+        # 4️⃣ MACD — 15 điểm
+        if latest['macd'] > latest['macd_signal']:
             score += 15
-        checks['macd_ok'] = macd_ok
+        checks['macd_ok'] = latest['macd'] > latest['macd_signal']
 
-        # 5️⃣ RSI trong khoảng 55~75 — 10 điểm
+        # 5️⃣ RSI — 10 điểm
         rsi = latest['rsi']
         if RSI_LOW < rsi < RSI_HIGH:
             score += 10
@@ -234,19 +263,30 @@ class TechnicalAnalyzer:
             score += 5
         checks['rsi_ok'] = RSI_LOW < rsi < RSI_HIGH
 
-        # 6️⃣ Cách đỉnh 20 phiên < 3% — 15 điểm
+        # 6️⃣ Breakout 20D — 10 điểm
         pct_from_high = latest['pct_from_high_20d']
         if pct_from_high <= BREAKOUT_MAX_DISTANCE:
-            score += 15
+            score += 10
         elif pct_from_high <= 0.05:
-            score += 8
+            score += 5
         checks['breakout_pct'] = round(float(pct_from_high * 100), 2)
-        checks['breakout_ok'] = pct_from_high <= BREAKOUT_MAX_DISTANCE
+
+        # 7️⃣ Mạnh hơn VNINDEX — +5 điểm
+        rs_strength = latest.get('rs_vs_market', 0)
+        if not pd.isna(rs_strength) and rs_strength > 0:
+            score += 5
+        checks['rs_vs_market'] = round(float(rs_strength), 4) if not pd.isna(rs_strength) else 0
+
+        # ⚠️ Nếu thị trường xấu — giảm điểm tối đa
+        if not market_ok:
+            score = int(score * 0.7)  # Giảm 30% điểm khi thị trường không thuận lợi
 
         return score, checks
 
-    def check_all_conditions(self, df):
-        """Kiểm tra 7 điều kiện lọc chính"""
+    def check_all_conditions(self, df, market_ok=True):
+        """
+        7 Điều kiện lọc chính + Điều kiện thị trường
+        """
         latest = df.iloc[-1]
 
         cond1 = latest['close'] > latest['ema20'] > latest['ema50'] > latest['ema200']
@@ -257,29 +297,30 @@ class TechnicalAnalyzer:
         cond6 = RSI_LOW < latest['rsi'] < RSI_HIGH
         cond7 = latest['pct_from_high_20d'] <= BREAKOUT_MAX_DISTANCE
 
-        all_pass = cond1 and cond2 and cond3 and cond4 and cond5 and cond6 and cond7
+        all_pass = cond1 and cond2 and cond3 and cond4 and cond5 and cond6 and cond7 and market_ok
 
         return all_pass, {
             "EMA Ribbon": cond1,
-            f"Vol Ratio > {MIN_VOLUME_RATIO}": cond2,
+            f"Vol > {MIN_VOLUME_RATIO}x": cond2,
             f"ADX > {MIN_ADX}": cond3,
             "+DI > -DI": cond4,
             "MACD > Signal": cond5,
-            f"RSI {RSI_LOW}~{RSI_HIGH}": cond6,
-            "Cách đỉnh 20D < 3%": cond7
+            f"RSI {RSI_LOW}-{RSI_HIGH}": cond6,
+            "Cách đỉnh 20D < 3%": cond7,
+            "Thị trường OK": market_ok
         }
 
-    def generate_signal(self, df, ticker):
-        df = self.calculate_all_indicators(df)
+    def generate_signal(self, df, ticker, vnindex_df=None, market_ok=True):
+        df = self.calculate_all_indicators(df, vnindex_df)
         latest = df.iloc[-1]
         entry_price = round(float(latest['close']), 2)
 
-        all_conditions_passed, condition_checks = self.check_all_conditions(df)
-        score, checks = self.calculate_score(df)
+        all_conditions_passed, _ = self.check_all_conditions(df, market_ok)
+        score, checks = self.calculate_score(df, market_ok)
 
         direction = "MUA ✅" if all_conditions_passed else "THEO DÕI ⏳"
 
-        # Tính TP/SL
+        # TP/SL
         risk = RISK_PERCENT / 100
         stop_loss = round(entry_price * (1 - risk), 2)
         risk_amount = entry_price - stop_loss
@@ -293,13 +334,11 @@ class TechnicalAnalyzer:
             "macd": round(float(latest['macd']), 3),
             "macd_signal": round(float(latest['macd_signal']), 3),
             "adx": adx_val,
-            "plus_di": round(float(latest['plus_di']), 1),
-            "minus_di": round(float(latest['minus_di']), 1),
             "trend_strength": trend_strength,
             "vol_ratio": checks['vol_ratio'],
             "ema_status": checks['ema_status'],
             "breakout_pct": checks['breakout_pct'],
-            "conditions": condition_checks
+            "rs_vs_market": checks['rs_vs_market']
         }
 
         return {
@@ -313,8 +352,71 @@ class TechnicalAnalyzer:
         }
 
 # ============================================================
-# 📥 LẤY DỮ LIỆU GIÁ THỰC — API VNDIRECT
+# 📥 LẤY DỮ LIỆU — API VNDIRECT
 # ============================================================
+def get_vnindex_data(days=LOOKBACK_DAYS):
+    """Lấy dữ liệu VNINDEX — So sánh thị trường"""
+    try:
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        url = (f"https://api-finfo.vndirect.com.vn/v4/stock_prices?sort=date"
+               f"&q=code:VNINDEX~date:gte:{start_date}~date:lte:{end_date}&size=500")
+        resp = requests.get(url, timeout=15, headers={            "User-Agent": "Mozilla/5.0", "Accept": "application/json"
+        })
+        if resp.status_code != 200:
+            return None
+        data = resp.json().get("data", [])
+        if not data or len(data) < 60:
+            return None
+        df = pd.DataFrame(data)
+        df = df.rename(columns={"close": "vnindex_close", "high": "vnindex_high", "low": "vnindex_low", "volume": "vnindex_volume"})
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values("date").reset_index(drop=True)
+        
+        # Tính chỉ số VNINDEX
+        df['ema20'] = df['vnindex_close'].ewm(span=20, adjust=False).mean()
+        delta = df['vnindex_close'].diff()
+        gain = delta.where(delta > 0, 0).rolling(window=9).mean()
+        loss = -delta.where(delta < 0, 0).rolling(window=9).mean()
+        df['rsi'] = 100 - (100 / (1 + gain / loss))
+        df['pct_change_3d'] = df['vnindex_close'].pct_change(3)
+        
+        latest = df.iloc[-1]
+        
+        # Đánh giá xu hướng thị trường
+        above_ema20 = latest['vnindex_close'] > latest['ema20']
+        rsi_val = latest['rsi']
+        pct_3d = latest['pct_change_3d']
+        
+        if above_ema20 and rsi_val > 50:
+            trend = "TĂNG"
+            note = "Thị trường trong xu hướng tăng — An toàn giao dịch"
+        elif not above_ema20 and rsi_val < 50:
+            trend = "GIẢM"
+            note = "Thị trường suy yếu — Cẩn trọng, ưu tiên quan sát"
+        else:
+            trend = "NGANG"
+            note = "Thị trường đi ngang — Chờ xu hướng rõ ràng hơn"
+        
+        # Kiểm tra điều kiện thị trường OK
+        market_ok = above_ema20 and rsi_val >= MARKET_RSI_UP and pct_3d >= MARKET_DOWN_PCT_STOP
+        
+        return {
+            "close": float(latest['vnindex_close']),
+            "ema20": float(latest['ema20']),
+            "rsi": float(rsi_val),
+            "pct_3d": float(pct_3d * 100),
+            "above_ema20": above_ema20,
+            "trend": trend,
+            "note": note,
+            "market_ok": market_ok,
+            "df": df[['date', 'vnindex_close']]
+        }
+    except Exception as e:
+        print(f"⚠️ Lỗi lấy VNINDEX: {e}")
+        return None
+
+
 def get_stock_data(ticker, days=LOOKBACK_DAYS):
     try:
         end_date = datetime.now().strftime("%Y-%m-%d")
@@ -346,10 +448,10 @@ def get_stock_data(ticker, days=LOOKBACK_DAYS):
 
 def get_filtered_hose_stocks():
     """Danh sách mã lớn, thanh khoản cao HOSE"""
-    print("\n" + "="*60)
+    print("\n" + "="*80)
     print("🔍 DANH SÁCH LỌC — TOP MÃ LỚN HOSE")
-    print("📋 Tiêu chí: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout")
-    print("="*60)
+    print("📋 Timeframe: D1 (Ngày) | Có tích hợp VNINDEX")
+    print("="*80)
     symbols = [
         "VNM","ACB","VCB","BID","CTG","MBB","TPB","HDB","STB","SSB",
         "VIC","VHM","VRE","MWG","FRT","PNJ","DGW","KDH","NLG","NVL",
@@ -370,21 +472,38 @@ class SmartStockBot:
         self.notifier = DiscordNotifier(DISCORD_WEBHOOK_URL)
         self.analyzer = TechnicalAnalyzer()
         self.watchlist = []
+        self.vnindex_data = None
 
     def build_watchlist(self):
+        # Bước 1: Lấy & phân tích VNINDEX
+        print("\n📊 Đang phân tích VNINDEX...")
+        self.vnindex_data = get_vnindex_data()
+        if self.vnindex_data:
+            print(f"   VNINDEX: {self.vnindex_data['close']:.2f} | Xu hướng: {self.vnindex_data['trend']} | RSI: {self.vnindex_data['rsi']:.1f}")
+            print(f"   Nhận định: {self.vnindex_data['note']}")
+            self.notifier.market_summary(self.vnindex_data)
+            market_ok = self.vnindex_data['market_ok']
+            if not market_ok:
+                print("⚠️ Thị trường chưa thuận lợi — Điểm sẽ giảm 30% và ưu tiên thấp hơn")
+        else:
+            print("⚠️ Không lấy được VNINDEX — bỏ qua lọc thị trường")
+            market_ok = True
+
         candidates = get_filtered_hose_stocks()
         results = []
         print(f"\n⏳ Đang phân tích {len(candidates)} mã...")
         print(f"📋 Ngưỡng: Vol>{MIN_VOLUME_RATIO}x | ADX>{MIN_ADX} | RSI{RSI_LOW}-{RSI_HIGH} | Cách đỉnh 20D<3%")
         print("-"*80)
 
+        vnindex_df = self.vnindex_data['df'] if self.vnindex_data else None
+
         for i, ticker in enumerate(candidates, 1):
             print(f"  [{i:2d}/{len(candidates)}] {ticker:<6s}...", end=" ", flush=True)
             df = get_stock_data(ticker)
             if df is not None:
-                analysis = self.analyzer.generate_signal(df, ticker)
+                analysis = self.analyzer.generate_signal(df, ticker, vnindex_df, market_ok)
                 results.append(analysis)
-                print(f"Điểm: {analysis['score']:3d}/100 | {analysis['signal']}")
+                print(f"Điểm: {analysis['score']:3d}/100 | {analysis['signal']} | RS: {analysis['rs_vs_market']:+.2%}")
             else:
                 print("Bỏ qua (không đủ dữ liệu)")
             time.sleep(0.35)
@@ -398,31 +517,37 @@ class SmartStockBot:
         self.watchlist = [s['ticker'] for s in top_stocks]
 
         print("\n" + "="*80)
-        print(f"🏆 TOP {len(top_stocks)} MÃ CÓ ĐIỂM CAO NHẤT")
+        print(f"🏆 TOP {len(top_stocks)} MÃ CÓ ĐIỂM CAO NHẤT — Timeframe: D1 (Ngày)")
         print("="*80)
         for rank, s in enumerate(top_stocks, 1):
             print(f"#{rank} {s['ticker']:<6s} | {s['score']:3d}/100 | {s['signal']} | Giá: {s['entry']} | TP: {s['TP']} | SL: {s['SL']}")
-            print(f"       RSI: {s['rsi']} | ADX: {s['adx']} | Vol Ratio: {s['vol_ratio']} | Cách đỉnh 20D: {s['breakout_pct']}%")
+            print(f"       RSI: {s['rsi']} | ADX: {s['adx']} | Vol Ratio: {s['vol_ratio']} | RS{RS_PERIOD}: {s['rs_vs_market']:+.2%}")
         print("="*80 + "\n")
 
         self.notifier.watchlist_update(len(results), self.watchlist)
-        self.notifier.top_stocks(top_stocks)
+        self.notifier.top_stocks(top_stocks, self.vnindex_data)
         return top_stocks
 
     def monitor_watchlist(self):
         print("\n" + "="*60)
         print("📊 QUÉT TÍN HIỆU DANH SÁCH THEO DÕI")
         print("="*60 + "\n")
+        
+        # Cập nhật VNINDEX mỗi lần quét
+        self.vnindex_data = get_vnindex_data()
+        market_ok = self.vnindex_data['market_ok'] if self.vnindex_data else True
+        vnindex_df = self.vnindex_data['df'] if self.vnindex_data else None
+        
         for ticker in self.watchlist:
             df = get_stock_data(ticker)
             if df is not None:
-                result = self.analyzer.generate_signal(df, ticker)
+                result = self.analyzer.generate_signal(df, ticker, vnindex_df, market_ok)
                 print(f"✅ {ticker:<6s} | {result['signal']} | Điểm: {result['score']}/100 | Giá: {result['entry']}")
                 if result['signal'] == "MUA ✅":
                     self.notifier.new_signal(
                         ticker, result['signal'], result['entry'],
                         result['TP'], result['SL'], result['score'],
-                        {k: result[k] for k in ['rsi','macd','macd_signal','adx','plus_di','minus_di','trend_strength','vol_ratio','ema_status','breakout_pct']}
+                        {k: result[k] for k in ['rsi','macd','macd_signal','adx','trend_strength','vol_ratio','ema_status','breakout_pct','rs_vs_market']}
                     )
             time.sleep(0.35)
 
@@ -431,10 +556,12 @@ class SmartStockBot:
 # ============================================================
 if __name__ == "__main__":
     print("\n" + "="*80)
-    print("🚀 BOT LỌC TỰ ĐỘNG HOSE — EMA RIBBON | VOL | ADX | MACD | RSI | BREAKOUT")
+    print("🚀 BOT LỌC TỰ ĐỘNG HOSE — PHIÊN BẢN CÓ VNINDEX")
+    print("⏱️  Timeframe phân tích: D1 (Ngày) — Dữ liệu giá cuối phiên mỗi ngày giao dịch")
     print("="*80)
-    print(f"⚙️  EMA: {EMA_SHORT}/{EMA_MID}/{EMA_LONG} | RSI: {RSI_PERIOD} | MACD: {MACD_FAST},{MACD_SLOW},{MACD_SIGNAL} | ADX: {ADX_PERIOD}")
-    print(f"⚙️  Ngưỡng lọc: Vol>{MIN_VOLUME_RATIO}x | ADX>{MIN_ADX} | RSI {RSI_LOW}-{RSI_HIGH} | Cách đỉnh 20D < {BREAKOUT_MAX_DISTANCE*100}%")
+    print(f"⚙️  EMA: {EMA_SHORT}/{EMA_MID}/{EMA_LONG} ngày | RSI: {RSI_PERIOD} | MACD: {MACD_FAST},{MACD_SLOW},{MACD_SIGNAL} | ADX: {ADX_PERIOD}")
+    print(f"⚙️  Khối lượng: Trung bình {VOL_LOOKBACK} ngày | Breakout: {BREAKOUT_PERIOD} phiên")
+    print(f"⚙️  VNINDEX: Lọc thị trường | RS{RS_PERIOD}: So sánh mạnh/yếu hơn thị trường")
     print(f"⚙️  Rủi ro: {RISK_PERCENT}% | Tỷ lệ L/R: 1:{REWARD_RATIO} | TOP: {TOP_STOCKS_LIMIT} mã")
     print(f"⏰ Chạy: 8:00 sáng Thứ 2 → Thứ 6")
     print("="*80 + "\n")
@@ -442,8 +569,8 @@ if __name__ == "__main__":
     bot = SmartStockBot()
 
     bot.notifier.send_embed(
-        "✅ BOT ĐÃ ONLINE",
-        f"📊 Nguồn: API VNDIRECT\n📈 Chỉ báo: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout 20D\n⏰ Quét mỗi sáng 8:00 T2-T6",
+        "✅ BOT ĐÃ ONLINE — PHIÊN BẢN VNINDEX",
+        f"📊 Nguồn: API VNDIRECT\n⏱️ Timeframe: D1 (Ngày)\n📈 Chỉ báo: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout\n🆚 So sánh: VNINDEX + RS{RS_PERIOD}\n⏰ Quét mỗi sáng 8:00 T2-T6",
         0x2ecc71
     )
 
@@ -459,7 +586,7 @@ if __name__ == "__main__":
         time.sleep(60)
         now = datetime.now()
 
-        is_weekday = now.weekday() < 5
+        is_weekday = now.weekday() < 5  # Thứ 2 đến Thứ 6
         is_8am = now.hour == 8 and now.minute <= 5
         today_str = now.strftime("%Y-%m-%d")
 
