@@ -361,8 +361,7 @@ class DiscordNotifier:
         return self.send_embed(title, desc, 0x2ecc71 if score >= 60 else 0xf39c12)
 
     def watchlist_update(self, count, stocks_list):
-
-desc = f"""
+        desc = f"""
 ✅ Đã cập nhật danh sách theo dõi — {count} mã
 {stocks_list}
 ⏰ Quét lại lúc 8:00 sáng mai
