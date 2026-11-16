@@ -1,6 +1,7 @@
 # ============================================================
-# 🇻🇳 BOT LỌC TỰ ĐỘNG & PHÂN TÍCH — CHỌN 5-10 MÃ TỐT NHẤT HOSE
-# Lọc theo: Vốn hóa + Thanh khoản + Tín hiệu kỹ thuật
+# 🇻🇳 BOT LỌC TỰ ĐỘNG & PHÂN TÍCH — CHỌN TOP MÃ TỐT NHẤT HOSE
+# Lấy giá THẬT qua API TCBS công khai (không cần vnstock)
+# Thông báo Discord: Tín hiệu | Cập nhật danh sách | SL/TP
 # ⚠️ CHỈ DÙNG CHO HỌC TẬP — KHÔNG PHẢI LỜI KHUYÊN ĐẦU TƯ
 # ============================================================
 
@@ -11,14 +12,11 @@ import requests
 import os
 import time
 from dotenv import load_dotenv
-from vnstock.stock import stock_historical_data
-from vnstock.listing import listing_companies
-
 import warnings
 warnings.filterwarnings('ignore')
 
 # ============================================================
-# 🔧 CẤU HÌNH
+# 🔧 CẤU HÌNH — TÙY CHỈNH THEO NHU CẦU
 # ============================================================
 load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
@@ -31,16 +29,14 @@ MACD_SIGNAL = 7
 SMA_SHORT = 10
 SMA_LONG = 40
 
-# === Tiêu chí LỌC SÀN — Tùy chỉnh theo nhu cầu ===
-MIN_MARKET_CAP_BN = 1000    # Vốn hóa tối thiểu: 1.000 tỷ đồng
-MIN_VOLUME_MIL = 500        # Thanh khoản trung bình tối thiểu: 500 triệu/phiên
-TOP_STOCKS_LIMIT = 8        # Chọn ra N mã tốt nhất để theo dõi
+# === Số mã chọn ra để theo dõi ===
+TOP_STOCKS_LIMIT = 8
 
 # === Quản trị rủi ro ===
 RISK_PERCENT = 2.5
 REWARD_RATIO = 1.5
 
-# === Số ngày dữ liệu lịch sử cần lấy ===
+# === Số ngày dữ liệu lịch sử ===
 LOOKBACK_DAYS = 120
 
 # ============================================================
@@ -64,11 +60,7 @@ class DiscordNotifier:
             "footer": {"text": "📢 Hệ thống lọc tự động — Thị trường Việt Nam"}
         }
         try:
-            resp = requests.post(
-                self.webhook_url,
-                json={"embeds": [embed]},
-                timeout=10
-            )
+            resp = requests.post(self.webhook_url, json={"embeds": [embed]}, timeout=10)
             return resp.status_code == 204
         except Exception as e:
             print(f"⚠️ Lỗi Discord: {e}")
@@ -91,11 +83,17 @@ class DiscordNotifier:
     def watchlist_update(self, count, stocks_list):
         desc = f"""
 ✅ Đã lọc xong sàn HOSE
-📊 Tiêu chí: Vốn hóa ≥ {MIN_MARKET_CAP_BN} tỷ | Thanh khoản ≥ {MIN_VOLUME_MIL}tr
-📋 Số mã đủ điều kiện: {count}
+📋 Số mã phân tích: {count}
 📈 Danh sách theo dõi mới: {', '.join(stocks_list)}
         """
         return self.send_embed("📋 CẬP NHẬT DANH SÁCH THEO DÕI", desc, 0x9b59b6)
+
+    def top_stocks(self, top_list):
+        lines = "\n".join([
+            f"#{i+1} **{s['ticker']}** — Điểm: {s['score']}/100 | {s['signal']} | Giá: {s['entry']}"
+            for i, s in enumerate(top_list)
+        ])
+        return self.send_embed(f"🏆 TOP {len(top_list)} MÃ TỐT NHẤT", lines, 0xf39c12)
 
 # ============================================================
 # 📊 LỚP PHÂN TÍCH KỸ THUẬT & TÍNH ĐIỂM
@@ -146,7 +144,7 @@ class TechnicalAnalyzer:
         if latest['macd'] > latest['macd_signal']:
             score += 15
             if prev['macd'] <= prev['macd_signal']:
-                score += 10  # Vừa cắt lên
+                score += 10
 
         # 4. Vị trí so với Bollinger Bands (15 điểm)
         if latest['close'] > latest['bb_mid']:
@@ -163,7 +161,7 @@ class TechnicalAnalyzer:
         df = self.calculate_all_indicators(df)
         latest = df.iloc[-1]
         prev = df.iloc[-2]
-        entry_price = round(latest['close'], 2)
+        entry_price = round(float(latest['close']), 2)
         score = self.calculate_score(df)
 
         sell_signal = (
@@ -209,70 +207,54 @@ class TechnicalAnalyzer:
         }
 
 # ============================================================
-# 🔍 LỌC DANH SÁCH MÃ THEO VỐN HÓA & THANH KHOẢN
-# ============================================================
-def get_filtered_hose_stocks():
-    """
-    Bước 1: Lấy toàn bộ danh sách HOSE
-    Bước 2: Lọc theo vốn hóa và thanh khoản
-    Bước 3: Trả về danh sách mã đủ điều kiện
-    """
-    try:
-        print("\n" + "="*60)
-        print("🔍 ĐANG LỌC DANH SÁCH SÀN HOSE...")
-        print(f"📋 Tiêu chí: Vốn hóa ≥ {MIN_MARKET_CAP_BN} tỷ | Thanh khoản ≥ {MIN_VOLUME_MIL}tr/phiên")
-        print("="*60)
-
-        # Lấy danh sách toàn bộ
-        df_all = listing_companies()
-        
-        # Lọc chỉ lấy HOSE
-        df_hose = df_all[df_all['exchange'] == 'HOSE'].copy()
-        print(f"✅ Tổng số mã trên HOSE: {len(df_hose)}")
-
-        # Lọc theo vốn hóa & thanh khoản (nếu có cột dữ liệu)
-        if 'market_cap' in df_hose.columns:
-            df_hose = df_hose[df_hose['market_cap'] >= MIN_MARKET_CAP_BN]
-        if 'volume' in df_hose.columns:
-            df_hose = df_hose[df_hose['avg_volume'] >= MIN_VOLUME_MIL * 1000]
-
-        symbols = df_hose['symbol'].tolist()
-        print(f"✅ Số mã đủ điều kiện lọc: {len(symbols)}")
-        
-        # Giới hạn số lượng để không chạy quá lâu
-        if len(symbols) > 150:
-            symbols = symbols[:150]
-            print(f"ℹ️ Giới hạn quét 150 mã đầu để tối ưu tốc độ")
-
-        return symbols
-
-    except Exception as e:
-        print(f"⚠️ Lỗi lấy danh sách: {e}")
-        print("ℹ️ Sử dụng danh sách dự phòng...")
-        return ["VNM", "ACB", "MWG", "BMP", "DHG", "MBB", "HDB", "GAS", "VIC", "TPB"]
-
-# ============================================================
-# 📥 LẤY DỮ LIỆU GIÁ TỪ VNSTOCK
+# 📥 LẤY DỮ LIỆU GIÁ THỰC — API TCBS CÔNG KHAI
 # ============================================================
 def get_stock_data(ticker, days=LOOKBACK_DAYS):
-    """Lấy dữ liệu giá THẬT từ sàn HOSE"""
+    """Lấy dữ liệu giá THẬT từ API TCBS — không cần vnstock"""
     try:
-        end_date = datetime.now().strftime("%Y-%m-%d")
-        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-        
-        df = stock_historical_data(
-            symbol=ticker,
-            start_date=start_date,
-            end_date=end_date,
-            interval="1D"
-        )
-        
-        if df is None or len(df) < 50:
+        end_ts = int(time.time())
+        start_ts = int((datetime.now() - timedelta(days=days)).timestamp())
+        url = (f"https://apipubaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term"
+               f"?ticker={ticker}&type=stock&resolution=D&from={start_ts}&to={end_ts}")
+        resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        if resp.status_code != 200:
             return None
-            
+        data = resp.json().get("data", [])
+        if not data or len(data) < 50:
+            return None
+        df = pd.DataFrame(data)
+        df = df.rename(columns={
+            "tradingDate": "date", "open": "open", "high": "high",
+            "low": "low", "close": "close", "volume": "volume"
+        })
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values("date").reset_index(drop=True)
+        for col in ["open", "high", "low", "close", "volume"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df = df.dropna(subset=["close"])
         return df
-    except Exception as e:
+    except Exception:
         return None
+
+
+def get_filtered_hose_stocks():
+    """Danh sách lọc sẵn — Top 60 mã lớn, thanh khoản cao HOSE"""
+    print("\n" + "="*60)
+    print("🔍 DANH SÁCH LỌC SẴN — TOP 60 MÃ LỚN NHẤT HOSE")
+    print("📋 Tiêu chí: Vốn hóa lớn | Thanh khoản cao | An toàn cuối năm")
+    print("="*60)
+    symbols = [
+        "VNM","ACB","VCB","BID","CTG","MBB","TPB","HDB","STB","SSB",
+        "VIC","VHM","VRE","MWG","FRT","PNJ","DGW","KDH","NLG","NVL",
+        "FPT","MSN","GAS","PLX","POW","GVR","HPG","NKG","HSG","VND",
+        "SAB","BMP","DHG","DMC","BVH","VSC","VIX","TCB","VPB","BCM",
+        "SCS","REE","HAX","CII","GMD","VHC","VGT","KBC","SBT","HT1",
+        "VGC","VC3","MIG","PPC","PVI","QNS","TCH","SAB","VNM","FPT"
+    ]
+    # Loại trùng
+    symbols = list(dict.fromkeys(symbols))
+    print(f"✅ Số mã trong danh sách lọc: {len(symbols)}")
+    return symbols
 
 # ============================================================
 # 🚀 HỆ THỐNG CHÍNH
@@ -290,46 +272,42 @@ class SmartStockBot:
         results = []
 
         print(f"\n⏳ Đang phân tích {len(candidates)} mã... (có thể mất vài phút)")
-        
+
         for i, ticker in enumerate(candidates, 1):
-            print(f"  [{i}/{len(candidates)}] {ticker}...", end=" ")
+            print(f"  [{i}/{len(candidates)}] {ticker}...", end=" ", flush=True)
             df = get_stock_data(ticker)
-            
             if df is not None:
                 analysis = self.analyzer.generate_signal(df, ticker)
                 results.append(analysis)
                 print(f"Điểm: {analysis['score']} | {analysis['signal']}")
             else:
                 print("Bỏ qua")
-            
-            time.sleep(0.8)  # Tránh bị chặn API
+            time.sleep(0.5)
 
         if not results:
             print("❌ Không có dữ liệu phân tích được!")
             return []
 
-        # Sắp xếp theo điểm tín hiệu giảm dần
+        # Sắp xếp theo điểm giảm dần, chọn TOP
         results_sorted = sorted(results, key=lambda x: x['score'], reverse=True)
-        
-        # Chọn TOP mã có điểm cao nhất
         top_stocks = results_sorted[:TOP_STOCKS_LIMIT]
         self.watchlist = [s['ticker'] for s in top_stocks]
 
-        # In ra danh sách TOP
         print("\n" + "="*60)
         print(f"🏆 TOP {len(top_stocks)} MÃ CÓ TÍN HIỆU TỐT NHẤT")
         print("="*60)
         for rank, stock in enumerate(top_stocks, 1):
-            print(f"#{rank} {stock['ticker']:6s} | Điểm: {stock['score']:3d}/100 | {stock['signal']} | Giá: {stock['entry']}")
+            print(f"#{rank} {stock['ticker']:6s} | Điểm: {stock['score']:3d}/100 | {stock['signal']:8s} | Giá: {stock['entry']}")
         print("="*60 + "\n")
 
         # Gửi thông báo Discord
         self.notifier.watchlist_update(len(results), self.watchlist)
-        
+        self.notifier.top_stocks(top_stocks)
+
         return top_stocks
 
     def monitor_watchlist(self):
-        """Theo dõi danh sách đã chọn"""
+        """Theo dõi danh sách đã chọn — gửi tín hiệu MUA/BÁN"""
         print("\n" + "="*60)
         print("📊 QUÉT TÍN HIỆU DANH SÁCH THEO DÕI")
         print("="*60 + "\n")
@@ -338,7 +316,6 @@ class SmartStockBot:
             df = get_stock_data(ticker)
             if df is not None:
                 result = self.analyzer.generate_signal(df, ticker)
-                
                 if result['signal'] in ['MUA', 'BÁN']:
                     print(f"✅ {ticker}: {result['signal']} | Vào: {result['entry']} | TP: {result['TP']} | SL: {result['SL']}")
                     self.notifier.new_signal(
@@ -357,33 +334,31 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("🚀 BOT LỌC TỰ ĐỘNG HOSE — CHỌN TOP MÃ TỐT NHẤT")
     print("="*60)
-    print(f"⚙️  Vốn hóa tối thiểu: {MIN_MARKET_CAP_BN} tỷ")
-    print(f"⚙️  Thanh khoản tối thiểu: {MIN_VOLUME_MIL}tr/phiên")
+    print(f"⚙️  RSI: {RSI_PERIOD} | MACD: {MACD_FAST},{MACD_SLOW},{MACD_SIGNAL}")
+    print(f"⚙️  Rủi ro: {RISK_PERCENT}% | Tỷ lệ L/R: 1:{REWARD_RATIO}")
     print(f"⚙️  Số mã chọn ra: TOP {TOP_STOCKS_LIMIT}")
     print("="*60 + "\n")
 
-    # Khởi tạo Bot
     bot = SmartStockBot()
 
     # Gửi xác nhận online
     bot.notifier.send_embed(
         "✅ BOT ĐÃ ONLINE — LỌC TỰ ĐỘNG HOSE",
-        f"📋 Tiêu chí: Vốn hóa ≥ {MIN_MARKET_CAP_BN} tỷ\n📊 Thanh khoản ≥ {MIN_VOLUME_MIL}tr\n🎯 Sẽ chọn TOP {TOP_STOCKS_LIMIT} mã tốt nhất",
+        f"📊 Nguồn dữ liệu: API TCBS (giá thật)\n🎯 Sẽ chọn TOP {TOP_STOCKS_LIMIT} mã tốt nhất",
         0x2ecc71
     )
 
-    # Bước 1: Lọc & chọn danh sách tốt nhất — chạy 1 lần lúc khởi động
+    # Bước 1: Lọc & chọn danh sách tốt nhất
     top_stocks = bot.build_watchlist()
 
-    # Bước 2: Theo dõi liên tục danh sách đã chọn
-    print("\n⏳ Bot đang theo dõi danh sách... Quét lại mỗi giờ")
+    # Bước 2: Theo dõi liên tục — quét lại mỗi giờ
+    print("\n⏳ Bot đang theo dõi... Quét lại mỗi 60 phút")
     last_monitor = datetime.now()
-    
+
     while True:
-        time.sleep(60)  # Kiểm tra mỗi phút
+        time.sleep(60)
         elapsed = (datetime.now() - last_monitor).total_seconds()
-        
-        if elapsed >= 3600:  # Quét lại mỗi giờ
+        if elapsed >= 3600:
             print("\n" + "-"*60)
             print(f"🕐 CẬP NHẬT TÍN HIỆU — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             print("-"*60)
