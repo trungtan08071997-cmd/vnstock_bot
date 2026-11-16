@@ -1,6 +1,6 @@
 # ============================================================
 # 🇻🇳 BOT LỌC TỰ ĐỘNG & PHÂN TÍCH — TOP MÃ TỐT NHẤT HOSE
-# Tiêu chí mới: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout 20D
+# Tiêu chí: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout 20D
 # TP/SL tự động | Thông báo Discord đầy đủ chỉ số
 # Nguồn giá: API VNDIRECT
 # ⚠️ CHỈ DÙNG CHO HỌC TẬP — KHÔNG PHẢI LỜI KHUYÊN ĐẦU TƯ
@@ -22,7 +22,7 @@ warnings.filterwarnings('ignore')
 load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
-# === Tham số chỉ báo MỚI ===
+# === Tham số chỉ báo ===
 EMA_SHORT = 20
 EMA_MID = 50
 EMA_LONG = 200
@@ -79,9 +79,9 @@ class DiscordNotifier:
             return False
 
     def new_signal(self, ticker, direction, entry, tp, sl, score, ind):
-        emoji = "🟢" if direction == "MUA" else "🔴"
-        color = 0x2ecc71 if direction == "MUA" else 0xe67e22
-        title = f"{emoji} TÍN HIỆU MỚI — {direction} {ticker}"
+        emoji = "🟢" if direction == "MUA ✅" else "⏳"
+        color = 0x2ecc71 if direction == "MUA ✅" else 0x9b59b6
+        title = f"{emoji} TÍN HIỆU — {direction.split()[0]} {ticker}"
         desc = f"""
 📌 **Mã:** {ticker}
 📊 **Điểm tín hiệu:** {score}/100
@@ -91,7 +91,7 @@ class DiscordNotifier:
 📐 **Tỷ lệ L/R:** 1 : {REWARD_RATIO}
 📈 **RSI:** {ind['rsi']} | **ADX:** {ind['adx']} ({ind['trend_strength']})
 📉 **MACD:** {ind['macd']}/{ind['macd_signal']} | **Vol Ratio:** {ind['vol_ratio']}
-📊 **EMA Ribbon:** {ind['ema_status']} | **Breakout 20D:** {ind['breakout_pct']}%
+📊 **EMA Ribbon:** {ind['ema_status']} | **Cách đỉnh 20D:** {ind['breakout_pct']}%
         """
         return self.send_embed(title, desc, color)
 
@@ -114,7 +114,7 @@ class DiscordNotifier:
         return self.send_embed(f"🏆 TOP {len(top_list)} MÃ TỐT NHẤT — KÈM TP/SL & CHỈ SỐ", lines, 0xf39c12)
 
 # ============================================================
-# 📊 LỚP PHÂN TÍCH KỸ THUẬT & TÍNH ĐIỂM — PHIÊN BẢN MỚI
+# 📊 LỚP PHÂN TÍCH KỸ THUẬT & TÍNH ĐIỂM
 # ============================================================
 class TechnicalAnalyzer:
     def __init__(self):
@@ -172,7 +172,7 @@ class TechnicalAnalyzer:
 
     def calculate_score(self, df):
         """
-        Hệ thống chấm điểm MỚI — Tổng 100đ
+        Hệ thống chấm điểm — Tổng 100đ
         ✅ EMA Ribbon:       30đ
         ✅ Volume Ratio:     15đ
         ✅ ADX + DI+:       15đ
@@ -195,10 +195,10 @@ class TechnicalAnalyzer:
             checks['ema_status'] = "✅ Hoàn hảo"
         elif close_above_ema20 and ema20_above_ema50:
             score += 20
-            checks['ema_status'] = "✅ Tốt (chưa EMA50>EMA200)"
+            checks['ema_status'] = "✅ Tốt"
         elif close_above_ema20:
             score += 10
-            checks['ema_status'] = "⚠️ Giá trên EMA20 thôi"
+            checks['ema_status'] = "⚠️ Giá trên EMA20"
         else:
             checks['ema_status'] = "❌ Không thỏa"
 
@@ -208,7 +208,6 @@ class TechnicalAnalyzer:
             score += 15
         elif vol_ratio >= MIN_VOLUME_RATIO:
             score += 10
-        # dưới 1.5 thì 0đ
         checks['vol_ratio'] = round(float(vol_ratio), 2)
 
         # 3️⃣ ADX > 25 & +DI > -DI — 15 điểm
@@ -247,7 +246,7 @@ class TechnicalAnalyzer:
         return score, checks
 
     def check_all_conditions(self, df):
-        """Kiểm tra TẤT CẢ 8 điều kiện BẮT BUỘC"""
+        """Kiểm tra 7 điều kiện lọc chính"""
         latest = df.iloc[-1]
 
         cond1 = latest['close'] > latest['ema20'] > latest['ema50'] > latest['ema200']
@@ -275,17 +274,10 @@ class TechnicalAnalyzer:
         latest = df.iloc[-1]
         entry_price = round(float(latest['close']), 2)
 
-        # Kiểm tra điều kiện lọc
         all_conditions_passed, condition_checks = self.check_all_conditions(df)
-
-        # Tính điểm
         score, checks = self.calculate_score(df)
 
-        # Xác định tín hiệu
-        if all_conditions_passed:
-            direction = "MUA ✅"
-        else:
-            direction = "THEO DÕI ⏳"
+        direction = "MUA ✅" if all_conditions_passed else "THEO DÕI ⏳"
 
         # Tính TP/SL
         risk = RISK_PERCENT / 100
@@ -293,7 +285,6 @@ class TechnicalAnalyzer:
         risk_amount = entry_price - stop_loss
         take_profit = round(entry_price + risk_amount * REWARD_RATIO, 2)
 
-        # Thông tin bổ sung
         adx_val = round(float(latest['adx']), 1)
         trend_strength = "MẠNH" if adx_val > 30 else ("KHẢ QUAN" if adx_val > 25 else "YẾU")
 
@@ -336,7 +327,7 @@ def get_stock_data(ticker, days=LOOKBACK_DAYS):
         if resp.status_code != 200:
             return None
         data = resp.json().get("data", [])
-        if not data or len(data) < 100:  # Cần đủ dữ liệu tính EMA200
+        if not data or len(data) < 100:
             return None
         df = pd.DataFrame(data)
         df = df.rename(columns={
@@ -354,10 +345,10 @@ def get_stock_data(ticker, days=LOOKBACK_DAYS):
 
 
 def get_filtered_hose_stocks():
-    """Danh sách lọc sẵn — Top mã lớn, thanh khoản cao HOSE"""
+    """Danh sách mã lớn, thanh khoản cao HOSE"""
     print("\n" + "="*60)
-    print("🔍 DANH SÁCH LỌC SẴN — TOP MÃ LỚN NHẤT HOSE")
-    print("📋 Tiêu chí mới: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout")
+    print("🔍 DANH SÁCH LỌC — TOP MÃ LỚN HOSE")
+    print("📋 Tiêu chí: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout")
     print("="*60)
     symbols = [
         "VNM","ACB","VCB","BID","CTG","MBB","TPB","HDB","STB","SSB",
@@ -368,7 +359,7 @@ def get_filtered_hose_stocks():
         "VGC","VC3","MIG","PPC","PVI","QNS","TCH"
     ]
     symbols = list(dict.fromkeys(symbols))
-    print(f"✅ Số mã trong danh sách lọc: {len(symbols)}")
+    print(f"✅ Số mã: {len(symbols)}")
     return symbols
 
 # ============================================================
@@ -383,9 +374,100 @@ class SmartStockBot:
     def build_watchlist(self):
         candidates = get_filtered_hose_stocks()
         results = []
-        print(f"\n⏳ Đang phân tích {len(candidates)} mã... (có thể mất vài phút)")
-        print(f"📋 Điều kiện: Close>EMA20>EMA50>EMA200 | Vol>{MIN_VOLUME_RATIO}x | ADX>{MIN_ADX} | +DI>-DI | MACD>Signal | RSI{RSI_LOW}-{RSI_HIGH} | Cách đỉnh 20D<3%")
+        print(f"\n⏳ Đang phân tích {len(candidates)} mã...")
+        print(f"📋 Ngưỡng: Vol>{MIN_VOLUME_RATIO}x | ADX>{MIN_ADX} | RSI{RSI_LOW}-{RSI_HIGH} | Cách đỉnh 20D<3%")
         print("-"*80)
 
         for i, ticker in enumerate(candidates, 1):
-            print(f"  [{i:2d}/{len(candidates)}] {ticker:4
+            print(f"  [{i:2d}/{len(candidates)}] {ticker:<6s}...", end=" ", flush=True)
+            df = get_stock_data(ticker)
+            if df is not None:
+                analysis = self.analyzer.generate_signal(df, ticker)
+                results.append(analysis)
+                print(f"Điểm: {analysis['score']:3d}/100 | {analysis['signal']}")
+            else:
+                print("Bỏ qua (không đủ dữ liệu)")
+            time.sleep(0.35)
+
+        if not results:
+            print("❌ Không có dữ liệu phân tích được!")
+            return []
+
+        results_sorted = sorted(results, key=lambda x: x['score'], reverse=True)
+        top_stocks = results_sorted[:TOP_STOCKS_LIMIT]
+        self.watchlist = [s['ticker'] for s in top_stocks]
+
+        print("\n" + "="*80)
+        print(f"🏆 TOP {len(top_stocks)} MÃ CÓ ĐIỂM CAO NHẤT")
+        print("="*80)
+        for rank, s in enumerate(top_stocks, 1):
+            print(f"#{rank} {s['ticker']:<6s} | {s['score']:3d}/100 | {s['signal']} | Giá: {s['entry']} | TP: {s['TP']} | SL: {s['SL']}")
+            print(f"       RSI: {s['rsi']} | ADX: {s['adx']} | Vol Ratio: {s['vol_ratio']} | Cách đỉnh 20D: {s['breakout_pct']}%")
+        print("="*80 + "\n")
+
+        self.notifier.watchlist_update(len(results), self.watchlist)
+        self.notifier.top_stocks(top_stocks)
+        return top_stocks
+
+    def monitor_watchlist(self):
+        print("\n" + "="*60)
+        print("📊 QUÉT TÍN HIỆU DANH SÁCH THEO DÕI")
+        print("="*60 + "\n")
+        for ticker in self.watchlist:
+            df = get_stock_data(ticker)
+            if df is not None:
+                result = self.analyzer.generate_signal(df, ticker)
+                print(f"✅ {ticker:<6s} | {result['signal']} | Điểm: {result['score']}/100 | Giá: {result['entry']}")
+                if result['signal'] == "MUA ✅":
+                    self.notifier.new_signal(
+                        ticker, result['signal'], result['entry'],
+                        result['TP'], result['SL'], result['score'],
+                        {k: result[k] for k in ['rsi','macd','macd_signal','adx','plus_di','minus_di','trend_strength','vol_ratio','ema_status','breakout_pct']}
+                    )
+            time.sleep(0.35)
+
+# ============================================================
+# 🏃 CHƯƠNG TRÌNH CHÍNH
+# ============================================================
+if __name__ == "__main__":
+    print("\n" + "="*80)
+    print("🚀 BOT LỌC TỰ ĐỘNG HOSE — EMA RIBBON | VOL | ADX | MACD | RSI | BREAKOUT")
+    print("="*80)
+    print(f"⚙️  EMA: {EMA_SHORT}/{EMA_MID}/{EMA_LONG} | RSI: {RSI_PERIOD} | MACD: {MACD_FAST},{MACD_SLOW},{MACD_SIGNAL} | ADX: {ADX_PERIOD}")
+    print(f"⚙️  Ngưỡng lọc: Vol>{MIN_VOLUME_RATIO}x | ADX>{MIN_ADX} | RSI {RSI_LOW}-{RSI_HIGH} | Cách đỉnh 20D < {BREAKOUT_MAX_DISTANCE*100}%")
+    print(f"⚙️  Rủi ro: {RISK_PERCENT}% | Tỷ lệ L/R: 1:{REWARD_RATIO} | TOP: {TOP_STOCKS_LIMIT} mã")
+    print(f"⏰ Chạy: 8:00 sáng Thứ 2 → Thứ 6")
+    print("="*80 + "\n")
+
+    bot = SmartStockBot()
+
+    bot.notifier.send_embed(
+        "✅ BOT ĐÃ ONLINE",
+        f"📊 Nguồn: API VNDIRECT\n📈 Chỉ báo: EMA Ribbon | Khối lượng | ADX+DI | MACD | RSI | Breakout 20D\n⏰ Quét mỗi sáng 8:00 T2-T6",
+        0x2ecc71
+    )
+
+    # Quét lần đầu khi khởi động
+    print("⏳ Quét lần đầu khi khởi động...\n")
+    bot.build_watchlist()
+
+    last_scan_date = None
+
+    print("\n⏳ Bot đang chạy — sẽ quét mới vào 8:00 sáng ngày giao dịch tiếp theo...")
+
+    while True:
+        time.sleep(60)
+        now = datetime.now()
+
+        is_weekday = now.weekday() < 5
+        is_8am = now.hour == 8 and now.minute <= 5
+        today_str = now.strftime("%Y-%m-%d")
+
+        if is_weekday and is_8am and last_scan_date != today_str:
+            print("\n" + "="*80)
+            print(f"🕐 {now.strftime('%A %d/%m/%Y %H:%M')} — BẮT ĐẦU QUÉT DANH SÁCH MỚI")
+            print("="*80)
+            bot.build_watchlist()
+            last_scan_date = today_str
+            print("✅ Hoàn thành. Chờ đến sáng mai...\n")
+
