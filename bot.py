@@ -552,12 +552,32 @@ class TechnicalAnalyzer:
         if not market_ok:
             score = int(score * 0.7)
         
+        # =========================================================
+        # 🔍 PHẦN KIỂM TRA & HIỂN THỊ TỪNG ĐIỀU KIỆN CHI TIẾT
+        # =========================================================
+        cond_diem = score >= 65
+        cond_dakhung = mtf['confidence'] >= 40
+        cond_ml = ml_prob >= 55
+        cond_thitruong = market_ok
+        cond_pe = pe_ok
+        
+        tat_ca_thoa = cond_diem and cond_dakhung and cond_ml and cond_thitruong and cond_pe
+        
+        tt_diem = f"Điểm: {score}/65 {'✅' if cond_diem else '❌'}"
+        tt_dakhung = f"Đa khung: {mtf['confidence']}%/40% {'✅' if cond_dakhung else '❌'}"
+        tt_ml = f"ML: {ml_prob}%/55% {'✅' if cond_ml else '❌'}"
+        tt_tt = f"Thị trường: {'✅' if cond_thitruong else '❌'}"
+        tt_pe = f"P/E: {'✅' if cond_pe else '❌'}"
+        
+        if tat_ca_thoa:
+            signal = f"✅ MUA | {tt_diem} | {tt_dakhung} | {tt_ml} | {tt_tt} | {tt_pe}"
+        else:
+            signal = f"⚡ XEM XÉT | {tt_diem} | {tt_dakhung} | {tt_ml} | {tt_tt} | {tt_pe}"
+        # =========================================================
+        
         atr_val = float(latest['atr'])
         sl_atr = round(entry - atr_val * params['atr_mult'], 2)
         tp_atr = round(entry + atr_val * 2.5, 2)
-        
-        signal = "✅ MUA" if (score >= 65 and mtf['confidence'] >= 40 and ml_prob >= 55 and market_ok and pe_ok) else \
-                 "⚡ XEM XÉT" if score >= 50 else "⏳ THEO DÕI"
         
         return {
             "ticker": ticker, "sector": sector, "signal": signal, "score": score,
@@ -565,6 +585,7 @@ class TechnicalAnalyzer:
             "rsi": round(float(latest['rsi']), 1), "adx": round(float(latest['adx']), 1),
             "vol_ratio": round(float(latest['vol_ratio']), 2), "ml_prob": ml_prob, "ml_note": ml_note
         }
+
 
 # ============================================================
 # 🚀 BOT CHÍNH
@@ -632,9 +653,11 @@ class SmartStockBot:
         print(f"🏆 TOP {len(top)} MÃ HÀNG ĐẦU")
         print("=" * 80)
         for rank, s in enumerate(top, 1):
-            print(f"#{rank} {s['ticker']:<6s} | {s['sector'][:18]} | Điểm: {s['score']}/100 | {s['signal']}")
+            print(f"#{rank} {s['ticker']:<6s} | {s['sector'][:18]}")
+            print(f"       {s['signal']}")
             print(f"       Giá: {s['entry']} | SL: {s['SL_atr']} | TP: {s['TP_atr']}")
         print("=" * 80 + "\n")
+
         
         self.notifier.top_stocks(top, vnindex)
         return top
