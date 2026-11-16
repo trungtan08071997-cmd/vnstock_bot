@@ -364,35 +364,48 @@ class SmartStockBot:
             time.sleep(0.4)
 
 # ============================================================
-# 🏃 CHƯƠNG TRÌNH CHÍNH
+# 🏃 CHƯƠNG TRÌNH CHÍNH — GỬI 1 LẦN/NGÀY LÚC 8H SÁNG (T2-T6)
 # ============================================================
 if __name__ == "__main__":
+    from datetime import time as dtime
+
     print("\n" + "="*60)
-    print("🚀 BOT LỌC TỰ ĐỘNG HOSE — FULL CHỈ SỐ + TP/SL")
+    print("🚀 BOT LỌC TỰ ĐỘNG HOSE — GỬI 8H SÁNG HẰNG NGÀY (T2-T6)")
     print("="*60)
     print(f"⚙️  RSI: {RSI_PERIOD} | MACD: {MACD_FAST},{MACD_SLOW},{MACD_SIGNAL} | ADX: {ADX_PERIOD}")
     print(f"⚙️  Rủi ro: {RISK_PERCENT}% | Tỷ lệ L/R: 1:{REWARD_RATIO} | TOP: {TOP_STOCKS_LIMIT} mã")
+    print(f"⏰ Lịch gửi: 8:00 sáng | Thứ 2 → Thứ 6")
     print("="*60 + "\n")
 
     bot = SmartStockBot()
 
     bot.notifier.send_embed(
-        "✅ BOT ĐÃ ONLINE — FULL CHỈ SỐ + TP/SL",
-        f"📊 Nguồn: API VNDIRECT (giá thật)\n📈 Chỉ báo: RSI | MACD | SMA | ADX | Bollinger\n🎯 Sẽ chọn TOP {TOP_STOCKS_LIMIT} mã tốt nhất",
+        "✅ BOT ĐÃ ONLINE — GỬI 8H SÁNG HẰNG NGÀY",
+        f"📊 Nguồn: API VNDIRECT (giá thật)\n📈 Chỉ báo: RSI | MACD | SMA | ADX | Bollinger\n⏰ Gửi lúc 8:00 sáng các ngày Thứ 2 → Thứ 6",
         0x2ecc71
     )
 
+    # Quét ngay lần đầu khi khởi động (để kiểm tra)
+    print("⏳ Quét lần đầu khi khởi động...")
     bot.build_watchlist()
 
-    print("\n⏳ Bot đang theo dõi... Quét lại mỗi 60 phút")
-    last_monitor = datetime.now()
+    last_scan_date = None  # Lưu ngày đã quét gần nhất
+
+    print("\n⏳ Bot đang chờ đến 8h sáng ngày giao dịch tiếp theo...")
 
     while True:
-        time.sleep(60)
-        elapsed = (datetime.now() - last_monitor).total_seconds()
-        if elapsed >= 3600:
-            print("\n" + "-"*60)
-            print(f"🕐 CẬP NHẬT TÍN HIỆU — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print("-"*60)
-            bot.monitor_watchlist()
-            last_monitor = datetime.now()
+        time.sleep(60)  # Kiểm tra mỗi phút
+        now = datetime.now()
+
+        # Chỉ chạy: Thứ 2-6 (weekday 0-4) + trong khung 8:00-8:05 + chưa quét hôm nay
+        is_weekday = now.weekday() < 5  # 0=Thứ2, 4=Thứ6, 5=Thứ7, 6=Chủ nhật
+        is_8am = now.hour == 8 and now.minute <= 5
+        today_str = now.strftime("%Y-%m-%d")
+
+        if is_weekday and is_8am and last_scan_date != today_str:
+            print("\n" + "="*60)
+            print(f"🕐 ĐẾN GIỜ — {now.strftime('%A %d/%m/%Y %H:%M')} — BẮT ĐẦU QUÉT")
+            print("="*60)
+            bot.build_watchlist()
+            last_scan_date = today_str
+            print("✅ Đã gửi xong. Chờ đến 8h sáng ngày giao dịch tiếp theo...")
