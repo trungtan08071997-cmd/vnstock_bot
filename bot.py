@@ -1,42 +1,45 @@
 # ============================================================
-# HỆ THỐNG GIAO DỊCH — TỐI ƯU CHO THỊ TRƯỜNG VIỆT NAM
-# Triển khai trên Render + GitHub
+# 🇻🇳 BOT LỌC TỰ ĐỘNG & PHÂN TÍCH — CHỌN 5-10 MÃ TỐT NHẤT HOSE
+# Lọc theo: Vốn hóa + Thanh khoản + Tín hiệu kỹ thuật
 # ⚠️ CHỈ DÙNG CHO HỌC TẬP — KHÔNG PHẢI LỜI KHUYÊN ĐẦU TƯ
 # ============================================================
 
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import os
 import time
 from dotenv import load_dotenv
+from vnstock import stock_historical_data, listing_companies
 import warnings
 warnings.filterwarnings('ignore')
 
 # ============================================================
-# 🔧 CẤU HÌNH — Đọc từ biến môi trường (an toàn trên Render)
+# 🔧 CẤU HÌNH
 # ============================================================
 load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
-# === Tham số chỉ báo — TỐI ƯU CHO THỊ TRƯỜNG VN ===
+# === Tham số chỉ báo — Tối ưu cho thị trường VN ===
 RSI_PERIOD = 9
 MACD_FAST = 10
 MACD_SLOW = 21
 MACD_SIGNAL = 7
 SMA_SHORT = 10
 SMA_LONG = 40
-BB_PERIOD = 18
-BB_STD = 1.8
+
+# === Tiêu chí LỌC SÀN — Tùy chỉnh theo nhu cầu ===
+MIN_MARKET_CAP_BN = 1000    # Vốn hóa tối thiểu: 1.000 tỷ đồng
+MIN_VOLUME_MIL = 500        # Thanh khoản trung bình tối thiểu: 500 triệu/phiên
+TOP_STOCKS_LIMIT = 8        # Chọn ra N mã tốt nhất để theo dõi
 
 # === Quản trị rủi ro ===
 RISK_PERCENT = 2.5
 REWARD_RATIO = 1.5
-MARKET_ALERT_THRESHOLD = 3.0
 
-# === Danh mục theo dõi ===
-WATCHLIST = ["VNM", "ACB", "VIC", "MWG", "FRT"]
+# === Số ngày dữ liệu lịch sử cần lấy ===
+LOOKBACK_DAYS = 120
 
 # ============================================================
 # 📡 LỚP GỬI THÔNG BÁO DISCORD
@@ -56,7 +59,7 @@ class DiscordNotifier:
             "title": title,
             "description": description + f"\n⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "color": color,
-            "footer": {"text": "📢 Hệ thống theo dõi — Thị trường Việt Nam"}
+            "footer": {"text": "📢 Hệ thống lọc tự động — Thị trường Việt Nam"}
         }
         try:
             resp = requests.post(
@@ -69,13 +72,13 @@ class DiscordNotifier:
             print(f"⚠️ Lỗi Discord: {e}")
             return False
 
-    def new_signal(self, ticker, direction, entry, tp, sl):
+    def new_signal(self, ticker, direction, entry, tp, sl, score):
         emoji = "🟢" if direction == "MUA" else "🔴"
         color = 0x2ecc71 if direction == "MUA" else 0xe67e22
         title = f"{emoji} TÍN HIỆU MỚI — {direction} {ticker}"
         desc = f"""
 📌 **Mã:** {ticker}
-📊 **Hướng:** {direction}
+📊 **Điểm tín hiệu:** {score}/100
 💰 **Giá vào:** {entry}
 🎯 **Mức TP:** {tp}
 🛑 **Mức SL:** {sl}
@@ -83,57 +86,17 @@ class DiscordNotifier:
         """
         return self.send_embed(title, desc, color)
 
-    def sl_triggered(self, ticker, direction, entry, sl, current, loss_pct):
-        title = "🚨 🔴 KÍCH HOẠT DỪNG LỖ — ĐÓNG VỊ THẾ NGAY!"
+    def watchlist_update(self, count, stocks_list):
         desc = f"""
-🔴 **Mã:** {ticker}
-📌 **Hướng:** {direction}
-💰 **Giá vào:** {entry}
-🛑 **Mức SL:** {sl}
-📊 **Giá hiện tại:** {current}
-📉 **Thua lỗ:** {abs(loss_pct):.2f}%
-
-> ⚠️ **HÀNH ĐỘNG:** Đóng vị thế ngay! Không đỡ đỉnh!
+✅ Đã lọc xong sàn HOSE
+📊 Tiêu chí: Vốn hóa ≥ {MIN_MARKET_CAP_BN} tỷ | Thanh khoản ≥ {MIN_VOLUME_MIL}tr
+📋 Số mã đủ điều kiện: {count}
+📈 Danh sách theo dõi mới: {', '.join(stocks_list)}
         """
-        return self.send_embed(title, desc, 0xe74c3c)
-
-    def tp_hit(self, ticker, direction, entry, tp, current, profit_pct):
-        title = "✅ 🟢 ĐẠT MỤC TIÊU — CHỐT LỜI!"
-        desc = f"""
-🟢 **Mã:** {ticker}
-📌 **Hướng:** {direction}
-💰 **Giá vào:** {entry}
-🎯 **Mức TP:** {tp}
-📊 **Giá hiện tại:** {current}
-📈 **Lợi nhuận:** {abs(profit_pct):.2f}%
-
-> 🎉 **HÀNH ĐỘNG:** Chốt lời hoặc di chuyển SL lên giá vào lệnh
-        """
-        return self.send_embed(title, desc, 0x2ecc71)
-
-    def market_alert(self, index_name, change_pct, current_value):
-        if change_pct < 0:
-            title = "📉 ⚠️ THỊ TRƯỜNG GIẢM MẠNH!"
-            color = 0xe74c3c
-            desc = f"""
-🔻 **{index_name}:** {current_value:.2f}
-📊 **Thay đổi:** {change_pct:.2f}%
-
-> 🔔 Kiểm tra ngay danh mục! Hạn chế mở lệnh mới.
-            """
-        else:
-            title = "📈 ⚠️ THỊ TRƯỜNG TĂNG MẠNH!"
-            color = 0x2ecc71
-            desc = f"""
-🔺 **{index_name}:** {current_value:.2f}
-📊 **Thay đổi:** +{change_pct:.2f}%
-
-> 🔔 Cẩn trọng chốt lời một phần vị thế đang có lãi.
-            """
-        return self.send_embed(title, desc, color)
+        return self.send_embed("📋 CẬP NHẬT DANH SÁCH THEO DÕI", desc, 0x9b59b6)
 
 # ============================================================
-# 📊 LỚP PHÂN TÍCH KỸ THUẬT & TÍN HIỆU
+# 📊 LỚP PHÂN TÍCH KỸ THUẬT & TÍNH ĐIỂM
 # ============================================================
 class TechnicalAnalyzer:
     def __init__(self):
@@ -154,18 +117,52 @@ class TechnicalAnalyzer:
         df['macd'] = df['ema12'] - df['ema26']
         df['macd_signal'] = df['macd'].ewm(span=MACD_SIGNAL, adjust=False).mean()
 
-        df['bb_mid'] = df['close'].rolling(window=BB_PERIOD).mean()
-        bb_std = df['close'].rolling(window=BB_PERIOD).std()
-        df['bb_upper'] = df['bb_mid'] + BB_STD * bb_std
-        df['bb_lower'] = df['bb_mid'] - BB_STD * bb_std
+        df['bb_mid'] = df['close'].rolling(window=18).mean()
+        bb_std = df['close'].rolling(window=18).std()
+        df['bb_upper'] = df['bb_mid'] + 1.8 * bb_std
+        df['bb_lower'] = df['bb_mid'] - 1.8 * bb_std
 
         return df
+
+    def calculate_score(self, df):
+        """Tính điểm tổng hợp 0-100 — càng cao càng tốt"""
+        latest = df.iloc[-1]
+        prev = df.iloc[-2]
+        score = 0
+
+        # 1. Xu hướng giá trên SMA (25 điểm)
+        if latest['close'] > latest[f'sma{SMA_SHORT}']: score += 12
+        if latest[f'sma{SMA_SHORT}'] > latest[f'sma{SMA_LONG}']: score += 13
+
+        # 2. RSI hợp lý (25 điểm)
+        if 45 < latest['rsi'] < 70:
+            score += 25
+        elif 35 < latest['rsi'] < 75:
+            score += 15
+
+        # 3. MACD (25 điểm)
+        if latest['macd'] > latest['macd_signal']:
+            score += 15
+            if prev['macd'] <= prev['macd_signal']:
+                score += 10  # Vừa cắt lên
+
+        # 4. Vị trí so với Bollinger Bands (15 điểm)
+        if latest['close'] > latest['bb_mid']:
+            score += 15
+
+        # 5. Khối lượng tăng (10 điểm)
+        avg_vol = df['volume'].tail(10).mean()
+        if latest['volume'] > avg_vol * 1.1:
+            score += 10
+
+        return score
 
     def generate_signal(self, df, ticker):
         df = self.calculate_all_indicators(df)
         latest = df.iloc[-1]
         prev = df.iloc[-2]
         entry_price = round(latest['close'], 2)
+        score = self.calculate_score(df)
 
         sell_signal = (
             entry_price < latest[f'sma{SMA_SHORT}'] and
@@ -196,153 +193,197 @@ class TechnicalAnalyzer:
             risk_amount = entry_price - stop_loss
             take_profit = round(entry_price + risk_amount * REWARD_RATIO, 2)
         else:
-            return {"ticker": ticker, "signal": "KHÔNG CÓ", "entry": entry_price, "note": "Chờ tín hiệu rõ hơn"}
+            direction = "KHÔNG CÓ"
+            stop_loss = round(entry_price * 0.975, 2)
+            take_profit = round(entry_price * 1.0375, 2)
 
-        return {"ticker": ticker, "signal": direction, "entry": entry_price, "TP": take_profit, "SL": stop_loss}
+        return {
+            "ticker": ticker,
+            "signal": direction,
+            "score": score,
+            "entry": entry_price,
+            "TP": take_profit,
+            "SL": stop_loss
+        }
+
+# ============================================================
+# 🔍 LỌC DANH SÁCH MÃ THEO VỐN HÓA & THANH KHOẢN
+# ============================================================
+def get_filtered_hose_stocks():
+    """
+    Bước 1: Lấy toàn bộ danh sách HOSE
+    Bước 2: Lọc theo vốn hóa và thanh khoản
+    Bước 3: Trả về danh sách mã đủ điều kiện
+    """
+    try:
+        print("\n" + "="*60)
+        print("🔍 ĐANG LỌC DANH SÁCH SÀN HOSE...")
+        print(f"📋 Tiêu chí: Vốn hóa ≥ {MIN_MARKET_CAP_BN} tỷ | Thanh khoản ≥ {MIN_VOLUME_MIL}tr/phiên")
+        print("="*60)
+
+        # Lấy danh sách toàn bộ
+        df_all = listing_companies()
+        
+        # Lọc chỉ lấy HOSE
+        df_hose = df_all[df_all['exchange'] == 'HOSE'].copy()
+        print(f"✅ Tổng số mã trên HOSE: {len(df_hose)}")
+
+        # Lọc theo vốn hóa & thanh khoản (nếu có cột dữ liệu)
+        if 'market_cap' in df_hose.columns:
+            df_hose = df_hose[df_hose['market_cap'] >= MIN_MARKET_CAP_BN]
+        if 'volume' in df_hose.columns:
+            df_hose = df_hose[df_hose['avg_volume'] >= MIN_VOLUME_MIL * 1000]
+
+        symbols = df_hose['symbol'].tolist()
+        print(f"✅ Số mã đủ điều kiện lọc: {len(symbols)}")
+        
+        # Giới hạn số lượng để không chạy quá lâu
+        if len(symbols) > 150:
+            symbols = symbols[:150]
+            print(f"ℹ️ Giới hạn quét 150 mã đầu để tối ưu tốc độ")
+
+        return symbols
+
+    except Exception as e:
+        print(f"⚠️ Lỗi lấy danh sách: {e}")
+        print("ℹ️ Sử dụng danh sách dự phòng...")
+        return ["VNM", "ACB", "MWG", "BMP", "DHG", "MBB", "HDB", "GAS", "VIC", "TPB"]
+
+# ============================================================
+# 📥 LẤY DỮ LIỆU GIÁ TỪ VNSTOCK
+# ============================================================
+def get_stock_data(ticker, days=LOOKBACK_DAYS):
+    """Lấy dữ liệu giá THẬT từ sàn HOSE"""
+    try:
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        
+        df = stock_historical_data(
+            symbol=ticker,
+            start_date=start_date,
+            end_date=end_date,
+            interval="1D"
+        )
+        
+        if df is None or len(df) < 50:
+            return None
+            
+        return df
+    except Exception as e:
+        return None
 
 # ============================================================
 # 🚀 HỆ THỐNG CHÍNH
 # ============================================================
-class TradingBot:
+class SmartStockBot:
     def __init__(self):
         self.notifier = DiscordNotifier(DISCORD_WEBHOOK_URL)
         self.analyzer = TechnicalAnalyzer()
+        self.watchlist = []
         self.positions = {}
-        self.market_ref = {}
 
-    def scan_ticker(self, df, ticker, send_alert=True):
-        result = self.analyzer.generate_signal(df, ticker)
-        if result['signal'] in ['MUA', 'BÁN']:
-            self.positions[ticker] = {
-                "direction": result['signal'],
-                "entry": result['entry'],
-                "SL": result['SL'],
-                "TP": result['TP']
-            }
-            if send_alert:
-                self.notifier.new_signal(ticker, result['signal'], result['entry'], result['TP'], result['SL'])
-            print(f"✅ {ticker}: {result['signal']} | Vào: {result['entry']} | TP: {result['TP']} | SL: {result['SL']}")
-        else:
-            print(f"⏳ {ticker}: {result['note']}")
-        return result
+    def build_watchlist(self):
+        """Lọc và chọn ra TOP mã tốt nhất"""
+        candidates = get_filtered_hose_stocks()
+        results = []
 
-    def scan_watchlist(self, data_dict):
+        print(f"\n⏳ Đang phân tích {len(candidates)} mã... (có thể mất vài phút)")
+        
+        for i, ticker in enumerate(candidates, 1):
+            print(f"  [{i}/{len(candidates)}] {ticker}...", end=" ")
+            df = get_stock_data(ticker)
+            
+            if df is not None:
+                analysis = self.analyzer.generate_signal(df, ticker)
+                results.append(analysis)
+                print(f"Điểm: {analysis['score']} | {analysis['signal']}")
+            else:
+                print("Bỏ qua")
+            
+            time.sleep(0.8)  # Tránh bị chặn API
+
+        if not results:
+            print("❌ Không có dữ liệu phân tích được!")
+            return []
+
+        # Sắp xếp theo điểm tín hiệu giảm dần
+        results_sorted = sorted(results, key=lambda x: x['score'], reverse=True)
+        
+        # Chọn TOP mã có điểm cao nhất
+        top_stocks = results_sorted[:TOP_STOCKS_LIMIT]
+        self.watchlist = [s['ticker'] for s in top_stocks]
+
+        # In ra danh sách TOP
+        print("\n" + "="*60)
+        print(f"🏆 TOP {len(top_stocks)} MÃ CÓ TÍN HIỆU TỐT NHẤT")
+        print("="*60)
+        for rank, stock in enumerate(top_stocks, 1):
+            print(f"#{rank} {stock['ticker']:6s} | Điểm: {stock['score']:3d}/100 | {stock['signal']} | Giá: {stock['entry']}")
+        print("="*60 + "\n")
+
+        # Gửi thông báo Discord
+        self.notifier.watchlist_update(len(results), self.watchlist)
+        
+        return top_stocks
+
+    def monitor_watchlist(self):
+        """Theo dõi danh sách đã chọn"""
         print("\n" + "="*60)
         print("📊 QUÉT TÍN HIỆU DANH SÁCH THEO DÕI")
         print("="*60 + "\n")
-        for ticker, df in data_dict.items():
-            self.scan_ticker(df, ticker)
 
-    def check_price(self, ticker, current_price):
-        if ticker not in self.positions:
-            return f"ℹ️ Không có vị thế {ticker}"
-        pos = self.positions[ticker]
-        entry = pos['entry']
-        sl = pos['SL']
-        tp = pos['TP']
-        direction = pos['direction']
-
-        if direction == "BÁN" and current_price >= sl:
-            loss_pct = (current_price - entry) / entry * 100
-            self.notifier.sl_triggered(ticker, direction, entry, sl, current_price, loss_pct)
-            del self.positions[ticker]
-            return f"🔴 {ticker}: DỪNG LỖ"
-        if direction == "MUA" and current_price <= sl:
-            loss_pct = (entry - current_price) / entry * 100
-            self.notifier.sl_triggered(ticker, direction, entry, sl, current_price, loss_pct)
-            del self.positions[ticker]
-            return f"🔴 {ticker}: DỪNG LỖ"
-        if direction == "BÁN" and current_price <= tp:
-            profit_pct = (entry - current_price) / entry * 100
-            self.notifier.tp_hit(ticker, direction, entry, tp, current_price, profit_pct)
-            del self.positions[ticker]
-            return f"🟢 {ticker}: CHỐT LỜI"
-        if direction == "MUA" and current_price >= tp:
-            profit_pct = (current_price - entry) / entry * 100
-            self.notifier.tp_hit(ticker, direction, entry, tp, current_price, profit_pct)
-            del self.positions[ticker]
-            return f"🟢 {ticker}: CHỐT LỜI"
-        return f"✅ {ticker} an toàn | Giá: {current_price} | SL: {sl} | TP: {tp}"
-
-    def monitor_index(self, index_name, current_price, ref_price=None):
-        if ref_price is None:
-            if index_name not in self.market_ref:
-                self.market_ref[index_name] = current_price
-                return f"📌 Lưu tham chiếu {index_name}: {current_price:.2f}"
-            ref_price = self.market_ref[index_name]
-        change_pct = (current_price - ref_price) / ref_price * 100
-        if abs(change_pct) >= MARKET_ALERT_THRESHOLD:
-            self.notifier.market_alert(index_name, change_pct, current_price)
-            return f"⚠️ {index_name} thay đổi {change_pct:.2f}% — Đã gửi Discord"
-        return f"✅ {index_name}: {current_price:.2f} ({change_pct:+.2f}%)"
-
-# ============================================================
-# 🧪 DỮ LIỆU MẪU — THAY BẰNG DỮ LIỆU THỰC
-# ============================================================
-def create_sample_data(ticker, days=90):
-    dates = pd.date_range(end=datetime.now(), periods=days, freq='D')
-    np.random.seed(hash(ticker) % 10000)
-    base = np.random.uniform(30, 150)
-    prices = base + np.cumsum(np.random.randn(len(dates)) * 0.8)
-    return pd.DataFrame({
-        'open': prices + np.random.randn(len(dates)) * 0.2,
-        'high': prices + abs(np.random.randn(len(dates))) * 0.6,
-        'low': prices - abs(np.random.randn(len(dates))) * 0.6,
-        'close': prices,
-        'volume': np.random.randint(500000, 3000000, size=len(dates))
-    }, index=dates)
+        for ticker in self.watchlist:
+            df = get_stock_data(ticker)
+            if df is not None:
+                result = self.analyzer.generate_signal(df, ticker)
+                
+                if result['signal'] in ['MUA', 'BÁN']:
+                    print(f"✅ {ticker}: {result['signal']} | Vào: {result['entry']} | TP: {result['TP']} | SL: {result['SL']}")
+                    self.notifier.new_signal(
+                        ticker, result['signal'],
+                        result['entry'], result['TP'], result['SL'],
+                        result['score']
+                    )
+                else:
+                    print(f"⏳ {ticker}: Điểm {result['score']}/100 — Chờ tín hiệu")
+            time.sleep(0.5)
 
 # ============================================================
 # 🏃 CHƯƠNG TRÌNH CHÍNH
 # ============================================================
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🚀 KHỞI ĐỘNG BOT THEO DÕI THỊ TRƯỜNG")
+    print("🚀 BOT LỌC TỰ ĐỘNG HOSE — CHỌN TOP MÃ TỐT NHẤT")
     print("="*60)
-    print(f"📋 Danh sách theo dõi: {', '.join(WATCHLIST)}")
-    print(f"⚙️  RSI: {RSI_PERIOD} | MACD: {MACD_FAST},{MACD_SLOW},{MACD_SIGNAL}")
-    print(f"🛑 Rủi ro: {RISK_PERCENT}% | Tỷ lệ L/R: 1:{REWARD_RATIO}")
+    print(f"⚙️  Vốn hóa tối thiểu: {MIN_MARKET_CAP_BN} tỷ")
+    print(f"⚙️  Thanh khoản tối thiểu: {MIN_VOLUME_MIL}tr/phiên")
+    print(f"⚙️  Số mã chọn ra: TOP {TOP_STOCKS_LIMIT}")
     print("="*60 + "\n")
 
-    # Tạo dữ liệu mẫu
-    def create_sample_data(ticker, days=90):
-        dates = pd.date_range(end=datetime.now(), periods=days, freq='D')
-        np.random.seed(hash(ticker) % 10000)
-        base = np.random.uniform(30, 150)
-        prices = base + np.cumsum(np.random.randn(len(dates)) * 0.8)
-        return pd.DataFrame({
-            'open': prices + np.random.randn(len(dates)) * 0.2,
-            'high': prices + abs(np.random.randn(len(dates))) * 0.6,
-            'low': prices - abs(np.random.randn(len(dates))) * 0.6,
-            'close': prices,
-            'volume': np.random.randint(500000, 3000000, size=len(dates))
-        }, index=dates)
+    # Khởi tạo Bot
+    bot = SmartStockBot()
 
-    # Khởi tạo dữ liệu mẫu cho toàn bộ danh sách
-    market_data = {ticker: create_sample_data(ticker) for ticker in WATCHLIST}
-
-    # === Khởi tạo Bot ===
-    bot = TradingBot()
-
-    # Gửi tin nhắn xác nhận bot online
+    # Gửi xác nhận online
     bot.notifier.send_embed(
-        "✅ BOT ĐÃ ONLINE",
-        f"Bot đang chạy trên Render\n📋 Theo dõi: {', '.join(WATCHLIST)}",
+        "✅ BOT ĐÃ ONLINE — LỌC TỰ ĐỘNG HOSE",
+        f"📋 Tiêu chí: Vốn hóa ≥ {MIN_MARKET_CAP_BN} tỷ\n📊 Thanh khoản ≥ {MIN_VOLUME_MIL}tr\n🎯 Sẽ chọn TOP {TOP_STOCKS_LIMIT} mã tốt nhất",
         0x2ecc71
     )
 
-    # === Bước 1: Quét tín hiệu toàn bộ danh sách ===
-    bot.scan_watchlist(market_data)
+    # Bước 1: Lọc & chọn danh sách tốt nhất — chạy 1 lần lúc khởi động
+    top_stocks = bot.build_watchlist()
 
-    # === Bước 2: Theo dõi VN-Index ===
-    print("\n" + "-"*60)
-    print("📉 THEO DÕI BIẾN ĐỘNG THỊ TRƯỜNG")
-    print("-"*60)
-    print(bot.monitor_index("VN-Index", 1245.50))
-
-    # === Vòng lặp giữ bot luôn chạy ===
-    print("\n⏳ Bot đang theo dõi... Nhấn Ctrl+C để dừng")
-    import time
+    # Bước 2: Theo dõi liên tục danh sách đã chọn
+    print("\n⏳ Bot đang theo dõi danh sách... Quét lại mỗi giờ")
+    last_monitor = datetime.now()
+    
     while True:
-        time.sleep(60)  # Nghỉ 60 giây
-
+        time.sleep(60)  # Kiểm tra mỗi phút
+        elapsed = (datetime.now() - last_monitor).total_seconds()
+        
+        if elapsed >= 3600:  # Quét lại mỗi giờ
+            print("\n" + "-"*60)
+            print(f"🕐 CẬP NHẬT TÍN HIỆU — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print("-"*60)
+            bot.monitor_watchlist()
+            last_monitor = datetime.now()
