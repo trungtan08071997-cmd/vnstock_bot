@@ -743,7 +743,7 @@ if __name__ == "__main__":
         time.sleep(60)
         now = datetime.now()
         is_weekday = now.weekday() < 5
-        is_8am = now.hour == 8 and now.minute <= 5
+        is_after_open = (now.hour == 9 and now.minute >= 15) or now.hour in [10, 11, 13, 14]
         today = now.strftime("%Y-%m-%d")
         
         if is_weekday and is_8am and last_scan != today:
